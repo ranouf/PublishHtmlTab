@@ -1,0 +1,35 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci --ignore-scripts --legacy-peer-deps
+
+      - name: Install task dependencies
+        run: npm ci --legacy-peer-deps
+        working-directory: PublishHtmlReport
+
+      - name: Build web extension
+        run: npm run build:web
+
+      - name: Package release VSIX
+        run: npm run package-extension:release

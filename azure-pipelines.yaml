@@ -1,0 +1,89 @@
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '12.x'
+
+- task: Npm@1
+  displayName: 'NPM: Install Task Dependencies'
+  inputs:
+    workingDir: PublishHtmlReport
+    verbose: false
+
+- task: Npm@1
+  displayName: 'npm install extension'
+  inputs:
+    workingDir: .
+    verbose: false
+
+- task: Npm@1
+  displayName: 'build extension'
+  inputs:
+    command: custom
+    workingDir: .
+    verbose: false
+    customCommand: 'run build:cidev'
+
+- task: PackageAzureDevOpsExtension@2
+  displayName: 'TFX: Package Extension Prod'
+  inputs:
+    rootFolder: .
+    patternManifest: 'azure-devops-extension.json'
+    publisherId: ranouf
+    extensionId: publish-html-tab
+    extensionName: 'Html Viewer'
+    extensionVisibility: public
+    extensionPricing: free
+  condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+
+- task: PackageAzureDevOpsExtension@2
+  displayName: 'TFX: Package Extension Dev'
+  inputs:
+    rootFolder: .
+    patternManifest: 'azure-devops-extension.json'
+    publisherId: ranouf
+    extensionId: publish-html-tab
+    extensionTag: dev
+    extensionName: 'Publish Html Tab'
+    extensionVersion: '1.0.$(Build.BuildId)'
+    updateTasksVersion: true
+    extensionVisibility: private
+    extensionPricing: free
+  condition: and(succeeded(), ne(variables['Build.SourceBranchName'], 'main'))
+
+- task: PublishAzureDevOpsExtension@2
+  displayName: 'TFX: Publish Extension Dev'
+  inputs:
+    connectedServiceName: JakubMarketPlace
+    rootFolder: .
+    patternManifest: 'azure-devops-extension.json'
+    publisherId: ranouf
+    extensionId: publish-html-tab
+    extensionTag: dev
+    extensionName: 'Publish Html Tab'
+    extensionVersion: '1.0.$(Build.BuildId)'
+    extensionVisibility: private
+    extensionPricing: free
+  condition: and(succeeded(), ne(variables['Build.SourceBranchName'], 'main'))
+
+- task: ShareAzureDevOpsExtension@2
+  displayName: 'TFX: Share Extension'
+  inputs:
+    connectedServiceName: JakubMarketPlace
+    method: vsix
+    vsixFile: '**.vsix'
+    accounts: 'maciejmaciejewski-dev'
+  condition: and(succeeded(), ne(variables['Build.SourceBranchName'], 'main'))
+
+- task: CopyFiles@2
+  displayName: 'Copy Files'
+  inputs:
+    SourceFolder: '$(System.DefaultWorkingDirectory)'
+    Contents: '**.vsix'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/results'
+  condition: succeededOrFailed()
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/results'
+  condition: succeededOrFailed()
