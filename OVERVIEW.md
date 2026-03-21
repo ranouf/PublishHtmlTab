@@ -13,6 +13,19 @@ This extension adds a pipeline task named `PublishHtmlTab` that publishes an HTM
 
 ## YAML Usage
 
+Single HTML file:
+
+```yaml
+steps:
+  - task: PublishHtmlTab@1
+    displayName: Publish accessibility report
+    inputs:
+      reportDir: "$(Build.SourcesDirectory)/artifacts/accessibility/report.html"
+      tabName: "Accessibility report"
+```
+
+Full report folder:
+
 ```yaml
 steps:
   - task: PublishHtmlTab@1
@@ -32,3 +45,6 @@ steps:
 ## Expected Result
 
 After the pipeline completes, Azure DevOps shows a dedicated results tab containing the published HTML report.
+
+- if `reportDir` points to one HTML file, that page is displayed directly
+- if `reportDir` points to a report folder, the task publishes the full folder and renders the appropriate HTML entry point inside Azure DevOps

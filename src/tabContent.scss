@@ -2,4 +2,30 @@
     font-size: 14px;
     margin-bottom: 10px;
     font-family: Arial, sans-serif;
-  }
+}
+
+.report-tab-header {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.report-tab-header .bolt-tabbar {
+    flex: 1 1 auto;
+}
+
+.report-tab-version {
+    color: #6b6b6b;
+    flex: 0 0 auto;
+    font-size: 12px;
+    line-height: 1;
+    padding-right: 8px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.report-tab-version:hover,
+.report-tab-version:focus {
+    color: #4d4d4d;
+    text-decoration: underline;
+}

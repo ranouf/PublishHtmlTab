@@ -65,13 +65,15 @@ function getSummaryAttachmentName(context) {
 }
 
 function getFileAttachmentName(context, index, fileName) {
+  const relativePathToken = Buffer.from(fileName, 'utf8').toString('base64url');
+
   return [
     context.tabName,
     context.jobName,
     context.stageName,
     context.stageAttempt,
     String(index),
-    encodeURIComponent(fileName)
+    relativePathToken
   ].join('.');
 }
 
@@ -89,6 +91,20 @@ function getDisplayName(reportRoot, filePath) {
   return path.basename(filePath);
 }
 
+function isRootIndexHtml(displayName) {
+  const normalizedName = displayName.toLowerCase();
+  return normalizedName === 'index.html' || normalizedName === 'index.htm';
+}
+
+function shouldExposeInManifest(htmlEntries) {
+  const rootIndexEntry = htmlEntries.find((entry) => isRootIndexHtml(entry.displayName));
+  if (rootIndexEntry) {
+    return [rootIndexEntry];
+  }
+
+  return htmlEntries;
+}
+
 function run() {
   const reportDirInput = tl.getInput('reportDir', true);
   const resolvedInputPath = path.resolve(reportDirInput);
@@ -104,8 +120,10 @@ function run() {
     jobName: context.jobName,
     stageName: context.stageName,
     stageAttempt: context.stageAttempt,
+    files: [],
     reports: []
   };
+  const htmlEntries = [];
 
   reportFiles.forEach((filePath, index) => {
     tl.debug(`Publishing report ${filePath}`);
@@ -116,12 +134,18 @@ function run() {
     const displayName = getDisplayName(reportRoot, filePath);
     const attachmentName = getFileAttachmentName(context, index, displayName);
 
-    if (isHtmlFile(filePath)) {
-      manifest.reports.push({
-        attachmentName,
-        fileName: path.basename(filePath),
-        displayName
-      });
+    const manifestEntry = {
+      attachmentName,
+      fileName: path.basename(filePath),
+      displayName,
+      relativePath: displayName,
+      isHtml: isHtmlFile(filePath)
+    };
+
+    manifest.files.push(manifestEntry);
+
+    if (manifestEntry.isHtml) {
+      htmlEntries.push(manifestEntry);
     }
 
     tl.command('task.addattachment', {
@@ -129,6 +153,8 @@ function run() {
       name: attachmentName
     }, filePath);
   });
+
+  manifest.reports = shouldExposeInManifest(htmlEntries);
 
   const tempDirectory = tl.getVariable('Agent.TempDirectory') || os.tmpdir();
   const manifestPath = path.join(tempDirectory, `publish-html-report-${Date.now()}.json`);

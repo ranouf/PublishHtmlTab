@@ -11,19 +11,25 @@ import { ObservableObject, ObservableValue } from "azure-devops-ui/Core/Observab
 import { Observer } from "azure-devops-ui/Observer"
 import { Tab, TabBar, TabSize } from "azure-devops-ui/Tabs"
 
+declare const APP_VERSION: string
+
 const SUMMARY_ATTACHMENT_TYPE = "report-html"
 const FILE_ATTACHMENT_TYPE = "report-html-file"
 const LOADING_CONTENT = '<div class="wide"><p>Loading...</p></div>'
+const MARKETPLACE_URL = "https://marketplace.visualstudio.com/items?itemName=ranouf.publish-html-tab"
 
 interface ReportManifestEntry {
   attachmentName: string
   displayName: string
   fileName: string
+  relativePath?: string
+  isHtml?: boolean
 }
 
 interface ReportManifest {
   schemaVersion: number
   tabName: string
+  files?: ReportManifestEntry[]
   reports: ReportManifestEntry[]
 }
 
@@ -52,6 +58,17 @@ abstract class AttachmentClient {
   protected authHeaders: object = undefined
   protected manifestCache: Map<string, ReportManifest> = new Map()
 
+  private toBase64(value: string): string {
+    const bytes = new TextEncoder().encode(value)
+    let binary = ""
+
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte)
+    })
+
+    return btoa(binary)
+  }
+
   public getSummaryAttachments(): Attachment[] {
     return this.summaryAttachments
   }
@@ -75,7 +92,7 @@ abstract class AttachmentClient {
   protected async getAttachmentContent(attachments: Attachment[], attachmentName: string): Promise<string> {
     if (this.authHeaders === undefined) {
       const accessToken = await SDK.getAccessToken()
-      const b64encodedAuth = Buffer.from(":" + accessToken).toString("base64")
+      const b64encodedAuth = this.toBase64(":" + accessToken)
       this.authHeaders = { headers: { Authorization: "Basic " + b64encodedAuth } }
     }
 
@@ -132,6 +149,7 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
   private selectedReportTabId: ObservableValue<string>
   private manifestContents: ObservableObject<string>
   private reportContents: ObservableObject<string>
+  private componentMounted: boolean = false
 
   constructor(props: TaskAttachmentPanelProps) {
     super(props)
@@ -148,6 +166,8 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
   }
 
   public componentDidMount() {
+    this.componentMounted = true
+
     if (this.props.attachmentClient.hasManifestMode()) {
       this.props.attachmentClient.getSummaryAttachments().forEach((attachment) => {
         this.manifestContents.add(attachment.name, LOADING_CONTENT)
@@ -162,6 +182,14 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     this.props.attachmentClient.getLegacyAttachments().forEach((attachment) => {
       this.reportContents.add(attachment.name, LOADING_CONTENT)
     })
+
+    if (this.selectedReportTabId.value) {
+      this.ensureReportContentLoaded(this.selectedReportTabId.value)
+    }
+  }
+
+  public componentWillUnmount() {
+    this.componentMounted = false
   }
 
   public escapeHTML(str: string) {
@@ -172,6 +200,10 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       "'": "&#39;",
       "\"": "&quot;"
     }[tag] || tag))
+  }
+
+  private formatErrorContent(message: string): string {
+    return `<div class="wide"><p>${this.escapeHTML(message)}</p></div>`
   }
 
   public render() {
@@ -189,20 +221,27 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     }
 
     const tabs = attachments.map((attachment) => (
-      <Tab name={this.getLegacyTabName(attachment.name)} id={attachment.name} key={attachment.name} url={attachment._links.self.href} />
+      <Tab name={this.getLegacyTabName(attachment.name)} id={attachment.name} key={attachment.name} />
     ))
 
     return (
       <div className="flex-column">
-        <TabBar onSelectedTabChanged={this.onLegacyTabChanged} selectedTabId={this.selectedReportTabId} tabSize={TabSize.Tall}>
-          {tabs}
-        </TabBar>
+        <div className="report-tab-header">
+          <TabBar onSelectedTabChanged={this.onLegacyTabChanged} selectedTabId={this.selectedReportTabId} tabSize={TabSize.Tall}>
+            {tabs}
+          </TabBar>
+          <a
+            className="report-tab-version"
+            href={MARKETPLACE_URL}
+            rel="noopener noreferrer"
+            target="_blank"
+            title="Open Publish HTML Tab on Visual Studio Marketplace"
+          >
+            v{APP_VERSION}
+          </a>
+        </div>
         <Observer selectedReportTabId={this.selectedReportTabId} reportContents={this.reportContents}>
           {(props: { selectedReportTabId: string }) => {
-            if (this.reportContents.get(props.selectedReportTabId) === LOADING_CONTENT) {
-              this.reportContents.set(props.selectedReportTabId, this.wrapHtmlFromUrl(this.props.attachmentClient.getReportUrl(props.selectedReportTabId)))
-            }
-
             return <span dangerouslySetInnerHTML={{ __html: this.reportContents.get(props.selectedReportTabId) || LOADING_CONTENT }} />
           }}
         </Observer>
@@ -222,16 +261,27 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
         ? (JSON.parse(manifestText) as ReportManifest).tabName
         : this.getLegacyTabName(attachment.name)
 
-      return <Tab name={tabName} id={attachment.name} key={attachment.name} url={attachment._links.self.href} />
+      return <Tab name={tabName} id={attachment.name} key={attachment.name} />
     })
 
     return (
       <div className="flex-column">
-        {summaryAttachments.length > 1 ?
-          <TabBar onSelectedTabChanged={this.onSummaryTabChanged} selectedTabId={this.selectedSummaryTabId} tabSize={TabSize.Tall}>
-            {summaryTabs}
-          </TabBar>
-        : null}
+        <div className="report-tab-header">
+          {summaryAttachments.length > 1 ?
+            <TabBar onSelectedTabChanged={this.onSummaryTabChanged} selectedTabId={this.selectedSummaryTabId} tabSize={TabSize.Tall}>
+              {summaryTabs}
+            </TabBar>
+          : <div />}
+          <a
+            className="report-tab-version"
+            href={MARKETPLACE_URL}
+            rel="noopener noreferrer"
+            target="_blank"
+            title="Open Publish HTML Tab on Visual Studio Marketplace"
+          >
+            v{APP_VERSION}
+          </a>
+        </div>
         <Observer selectedSummaryTabId={this.selectedSummaryTabId} manifestContents={this.manifestContents} selectedReportTabId={this.selectedReportTabId} reportContents={this.reportContents}>
           {(props: { selectedSummaryTabId: string, selectedReportTabId: string }) => {
             const manifestText = this.manifestContents.get(props.selectedSummaryTabId)
@@ -243,10 +293,6 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
             const reportTabs = manifest.reports.map((report) => (
               <Tab name={report.displayName} id={report.attachmentName} key={report.attachmentName} />
             ))
-
-            if (props.selectedReportTabId && this.reportContents.get(props.selectedReportTabId) === LOADING_CONTENT) {
-              this.reportContents.set(props.selectedReportTabId, this.wrapHtmlFromUrl(this.props.attachmentClient.getReportUrl(props.selectedReportTabId)))
-            }
 
             return (
               <div className="flex-column">
@@ -266,6 +312,10 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
   private async loadManifest(summaryAttachmentName: string) {
     const manifest = await this.props.attachmentClient.getManifest(summaryAttachmentName)
+    if (!this.componentMounted) {
+      return
+    }
+
     this.manifestContents.set(summaryAttachmentName, JSON.stringify(manifest))
 
     manifest.reports.forEach((report) => {
@@ -274,8 +324,10 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       }
     })
 
-    if (manifest.reports.length > 0) {
-      this.selectedReportTabId.value = manifest.reports[0].attachmentName
+    const preferredReport = this.getPreferredReport(manifest)
+    if (preferredReport) {
+      this.selectedReportTabId.value = preferredReport.attachmentName
+      this.ensureReportContentLoaded(preferredReport.attachmentName)
     }
   }
 
@@ -283,8 +335,227 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     return '<iframe class="wide flex-row flex-center" srcdoc="' + this.escapeHTML(content) + '"></iframe>'
   }
 
-  private wrapHtmlFromUrl(reportUrl: string): string {
-    return '<iframe class="wide flex-row flex-center" src="' + this.escapeHTML(reportUrl) + '"></iframe>'
+  private async ensureReportContentLoaded(attachmentName: string) {
+    if (!attachmentName) {
+      return
+    }
+
+    if (this.reportContents.get(attachmentName) === LOADING_CONTENT) {
+      try {
+        const reportHtml = await this.getReportFrameContent(attachmentName)
+        if (this.componentMounted && this.reportContents.get(attachmentName) === LOADING_CONTENT) {
+          this.reportContents.set(attachmentName, reportHtml)
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (this.componentMounted && this.reportContents.get(attachmentName) === LOADING_CONTENT) {
+          this.reportContents.set(attachmentName, this.formatErrorContent(message))
+        }
+      }
+    }
+  }
+
+  private async getReportFrameContent(attachmentName: string): Promise<string> {
+    const manifest = this.getSelectedManifest()
+    if (!manifest) {
+      const html = await this.props.attachmentClient.getReportContent(attachmentName)
+      return this.wrapHtml(html)
+    }
+
+    const reportEntry = manifest.files?.find((entry) => entry.attachmentName === attachmentName)
+      || manifest.reports.find((entry) => entry.attachmentName === attachmentName)
+
+    if (!reportEntry) {
+      throw new Error("Report " + attachmentName + " was not found in the manifest")
+    }
+
+    const html = await this.props.attachmentClient.getReportContent(attachmentName)
+    const rewrittenHtml = await this.rewriteReportHtml(html, reportEntry, manifest)
+    return this.wrapHtml(rewrittenHtml)
+  }
+
+  private getSelectedManifest(): ReportManifest | undefined {
+    const summaryAttachmentName = this.selectedSummaryTabId.value
+    if (!summaryAttachmentName) {
+      return undefined
+    }
+
+    const manifestText = this.manifestContents.get(summaryAttachmentName)
+    if (!manifestText || manifestText === LOADING_CONTENT) {
+      return undefined
+    }
+
+    return JSON.parse(manifestText) as ReportManifest
+  }
+
+  private async rewriteReportHtml(html: string, reportEntry: ReportManifestEntry, manifest: ReportManifest): Promise<string> {
+    const parser = new DOMParser()
+    const document = parser.parseFromString(html, "text/html")
+    const assetMap = this.buildAssetMap(manifest)
+    const reportPath = this.normalizePath(this.getReportPath(reportEntry))
+    const reportDirectory = reportPath.includes("/") ? reportPath.substring(0, reportPath.lastIndexOf("/") + 1) : ""
+
+    await this.inlineLinkedAssets(document, reportDirectory, assetMap)
+    this.rewriteDocumentUrls(document, "a", "href", reportDirectory, assetMap)
+    this.rewriteDocumentUrls(document, "img", "src", reportDirectory, assetMap)
+    this.rewriteDocumentUrls(document, "iframe", "src", reportDirectory, assetMap)
+    this.rewriteDocumentUrls(document, "source", "src", reportDirectory, assetMap)
+    this.rewriteInlineStyles(document, reportDirectory, assetMap)
+
+    return document.documentElement.outerHTML
+  }
+
+  private async inlineLinkedAssets(document: Document, reportDirectory: string, assetMap: Map<string, string>) {
+    const stylesheetLinks = Array.from(document.querySelectorAll("link[rel='stylesheet'][href]"))
+    for (const linkElement of stylesheetLinks) {
+      const href = linkElement.getAttribute("href")
+      if (!href || this.isExternalUrl(href)) {
+        continue
+      }
+
+      const linkedEntry = this.findManifestEntryForRelativeUrl(reportDirectory, href)
+      if (!linkedEntry) {
+        continue
+      }
+
+      const stylesheetContent = await this.props.attachmentClient.getReportContent(linkedEntry.attachmentName)
+      const styleElement = document.createElement("style")
+      styleElement.textContent = this.rewriteCssUrls(stylesheetContent, this.getBaseDirectory(linkedEntry), assetMap)
+      linkElement.replaceWith(styleElement)
+    }
+
+    const scriptLinks = Array.from(document.querySelectorAll("script[src]"))
+    for (const scriptElement of scriptLinks) {
+      const src = scriptElement.getAttribute("src")
+      if (!src || this.isExternalUrl(src)) {
+        continue
+      }
+
+      const linkedEntry = this.findManifestEntryForRelativeUrl(reportDirectory, src)
+      if (!linkedEntry) {
+        continue
+      }
+
+      const scriptContent = await this.props.attachmentClient.getReportContent(linkedEntry.attachmentName)
+      const inlineScriptElement = document.createElement("script")
+      inlineScriptElement.textContent = scriptContent
+      scriptElement.replaceWith(inlineScriptElement)
+    }
+  }
+
+  private rewriteDocumentUrls(document: Document, selector: string, attributeName: string, reportDirectory: string, assetMap: Map<string, string>) {
+    document.querySelectorAll(selector).forEach((element) => {
+      const currentValue = element.getAttribute(attributeName)
+      if (!currentValue || this.isExternalUrl(currentValue)) {
+        return
+      }
+
+      const resolvedPath = this.resolveRelativePath(reportDirectory, currentValue)
+      const resolvedUrl = assetMap.get(resolvedPath)
+      if (resolvedUrl) {
+        element.setAttribute(attributeName, resolvedUrl)
+      }
+    })
+  }
+
+  private rewriteInlineStyles(document: Document, reportDirectory: string, assetMap: Map<string, string>) {
+    document.querySelectorAll("style").forEach((styleElement) => {
+      if (!styleElement.textContent) {
+        return
+      }
+
+      styleElement.textContent = this.rewriteCssUrls(styleElement.textContent, reportDirectory, assetMap)
+    })
+  }
+
+  private buildAssetMap(manifest: ReportManifest): Map<string, string> {
+    const assetMap = new Map<string, string>()
+    const files = manifest.files || manifest.reports
+
+    files.forEach((entry) => {
+      const relativePath = this.normalizePath(this.getReportPath(entry))
+      try {
+        assetMap.set(relativePath, this.props.attachmentClient.getReportUrl(entry.attachmentName))
+      } catch {
+        return
+      }
+    })
+
+    return assetMap
+  }
+
+  private findManifestEntryForRelativeUrl(reportDirectory: string, relativeUrl: string): ReportManifestEntry | undefined {
+    const manifest = this.getSelectedManifest()
+    if (!manifest) {
+      return undefined
+    }
+
+    const resolvedPath = this.resolveRelativePath(reportDirectory, relativeUrl)
+    const files = manifest.files || manifest.reports
+    return files.find((entry) => this.normalizePath(this.getReportPath(entry)) === resolvedPath)
+  }
+
+  private getBaseDirectory(reportEntry: ReportManifestEntry): string {
+    const reportPath = this.normalizePath(this.getReportPath(reportEntry))
+    return reportPath.includes("/") ? reportPath.substring(0, reportPath.lastIndexOf("/") + 1) : ""
+  }
+
+  private rewriteCssUrls(cssText: string, reportDirectory: string, assetMap: Map<string, string>): string {
+    return cssText.replace(/url\((['"]?)([^)'"]+)\1\)/g, (_match, quote, assetUrl) => {
+      if (!assetUrl || this.isExternalUrl(assetUrl)) {
+        return `url(${quote}${assetUrl}${quote})`
+      }
+
+      const resolvedPath = this.resolveRelativePath(reportDirectory, assetUrl)
+      const resolvedUrl = assetMap.get(resolvedPath)
+      if (!resolvedUrl) {
+        return `url(${quote}${assetUrl}${quote})`
+      }
+
+      return `url(${quote}${resolvedUrl}${quote})`
+    })
+  }
+
+  private resolveRelativePath(reportDirectory: string, relativeUrl: string): string {
+    const [pathPart] = relativeUrl.split(/[?#]/, 1)
+    const baseUrl = new URL(reportDirectory || ".", "https://publish-html-tab.local/")
+    const resolvedUrl = new URL(pathPart, baseUrl)
+    return this.normalizePath(resolvedUrl.pathname.replace(/^\/+/, ""))
+  }
+
+  private normalizePath(filePath: string): string {
+    return filePath.replace(/\\/g, "/").replace(/^\.\//, "")
+  }
+
+  private isExternalUrl(url: string): boolean {
+    return url.startsWith("#")
+      || /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)
+      || url.startsWith("//")
+  }
+
+  private getPreferredReport(manifest: ReportManifest): ReportManifestEntry | undefined {
+    const reports = manifest.reports
+    if (reports.length === 0) {
+      return undefined
+    }
+
+    const indexReports = reports
+      .filter((report) => this.isIndexReport(report))
+      .sort((left, right) => this.getReportPath(left).length - this.getReportPath(right).length)
+
+    return indexReports[0] || reports[0]
+  }
+
+  private isIndexReport(report: ReportManifestEntry): boolean {
+    const normalizedPath = this.getReportPath(report).toLowerCase()
+    return normalizedPath.endsWith("/index.html")
+      || normalizedPath.endsWith("/index.htm")
+      || normalizedPath === "index.html"
+      || normalizedPath === "index.htm"
+  }
+
+  private getReportPath(report: ReportManifestEntry): string {
+    return report.relativePath || report.displayName || report.fileName
   }
 
   private getLegacyTabName(attachmentName: string): string {
@@ -298,9 +569,11 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
   private onReportTabChanged = (newTabId: string) => {
     this.selectedReportTabId.value = newTabId
+    this.ensureReportContentLoaded(newTabId)
   }
 
   private onLegacyTabChanged = (newTabId: string) => {
     this.selectedReportTabId.value = newTabId
+    this.ensureReportContentLoaded(newTabId)
   }
 }
