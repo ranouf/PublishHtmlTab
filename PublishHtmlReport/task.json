@@ -1,0 +1,44 @@
+{
+  "id": "88e6171a-9e19-4b26-b78f-130dae5eebe5",
+  "name": "PublishHtmlTab",
+  "friendlyName": "Publish Html Tab",
+  "description": "Publish Html Tab",
+  "author": "ranouf",
+  "helpMarkDown": "Publishes an HTML report or a report directory into the Azure DevOps build results experience.",
+  "category": "Utility",
+  "visibility": [
+    "Build"
+  ],
+  "demands": [],
+  "version": {
+    "Major": "1",
+    "Minor": "20260320",
+    "Patch": "86174"
+  },
+  "minimumAgentVersion": "1.95.0",
+  "instanceNameFormat": "Publish Html Tab",
+  "inputs": [
+    {
+      "name": "tabName",
+      "type": "string",
+      "label": "Report tab name",
+      "defaultValue": "HTML-Report",
+      "required": false,
+      "helpMarkDown": "Name displayed for the published report inside the extension viewer."
+    },
+    {
+      "name": "reportDir",
+      "type": "string",
+      "label": "HTML file or directory",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "Path to a single HTML file or to a directory whose contents are published recursively."
+    }
+  ],
+  "execution": {
+    "Node20_1": {
+      "target": "index.js",
+      "argumentFormat": ""
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "publish-html-report",
+  "version": "1.20260320.86174",
+  "description": "",
+  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "azure-pipelines-task-lib": "^5.2.1",
+    "cheerio": "^1.0.0",
+    "dashify": "^2.0.0",
+    "globby": "^11.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {},
+  "author": "ranouf",
+  "license": "ISC"
+}

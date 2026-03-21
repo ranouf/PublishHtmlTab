@@ -1,0 +1,60 @@
+{
+  "name": "publish-html-tab",
+  "version": "1.20260320.86174",
+  "private": true,
+  "author": "ranouf",
+  "dependencies": {
+    "azure-devops-extension-api": "^1.157.0",
+    "azure-devops-extension-sdk": "^2.0.11",
+    "azure-devops-ui": "^2.165.1",
+    "react": "^16.14.0",
+    "react-dom": "^16.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.24",
+    "@types/react": "^16.14.35",
+    "@types/react-dom": "^16.9.25",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "file-loader": "^6.2.0",
+    "rimraf": "^6.0.1",
+    "sass": "^1.85.1",
+    "sass-loader": "^16.0.5",
+    "style-loader": "^4.0.0",
+    "tfx-cli": "^0.7.11",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.2",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "set:auto-version": "node ./scripts/set-auto-version.js",
+    "build:web": "npm run clean && webpack --mode development",
+    "build:cidev": "npm run build:web",
+    "build": "npm run build:web",
+    "build:dev": "npm run build:web && npm run package-extension",
+    "build:release": "npm run build:web && npm run package-extension:release",
+    "postinstall": "cd PublishHtmlReport && npm install",
+    "test": "echo No test available",
+    "prune": "npm prune --production --ignore-scripts",
+    "package-extension": "node --no-warnings ./node_modules/tfx-cli/_build/tfx-cli.js extension create --manifest-globs azure-devops-extension.json --overrides-file dev_manifest.json",
+    "package-extension:release:raw": "node --no-warnings ./node_modules/tfx-cli/_build/tfx-cli.js extension create --manifest-globs azure-devops-extension.json --overrides-file release_manifest.json",
+    "package-extension:release": "npm run --silent set:auto-version && npm run package-extension:release:raw"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
