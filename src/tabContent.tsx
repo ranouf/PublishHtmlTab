@@ -33,6 +33,8 @@ const MARKETPLACE_URL =
 const INTERNAL_REPORT_NAVIGATION_MESSAGE = 'publish-html-tab:navigate';
 const INTERNAL_REPORT_HEIGHT_MESSAGE = 'publish-html-tab:height';
 const INTERNAL_REPORT_LINK_ATTRIBUTE = 'data-publish-html-tab-report';
+const INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE =
+  'data-publish-html-tab-missing-link';
 const INTERNAL_REPORT_HASH_KEY = 'report';
 const HOST_REPORT_QUERY_KEY = 'phtReport';
 const HOST_SUMMARY_QUERY_KEY = 'phtSummary';
@@ -276,6 +278,8 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
   private selectedReportTabId: ObservableValue<string>;
   private manifestContents: ObservableObject<string>;
   private reportContents: ObservableObject<string>;
+  private viewerErrorContent: ObservableValue<string | undefined>;
+  private viewerWarningMessage: ObservableValue<string | undefined>;
   private linkedAssetContentCache: Map<string, Promise<string>>;
   private scriptBlobUrlCache: Map<string, Promise<string>>;
   private createdObjectUrls: Set<string>;
@@ -298,6 +302,8 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     );
     this.manifestContents = new ObservableObject();
     this.reportContents = new ObservableObject();
+    this.viewerErrorContent = new ObservableValue(undefined);
+    this.viewerWarningMessage = new ObservableValue(undefined);
     this.linkedAssetContentCache = new Map();
     this.scriptBlobUrlCache = new Map();
     this.createdObjectUrls = new Set();
@@ -360,6 +366,26 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     return `<div class="wide"><p>${this.escapeHTML(message)}</p></div>`;
   }
 
+  private renderNotFoundContent(title: string, details: string): string {
+    return `<div class="report-not-found-state"><h2>${this.escapeHTML(title)}</h2><p>${this.escapeHTML(details)}</p></div>`;
+  }
+
+  private showNotFound(title: string, details: string) {
+    this.viewerErrorContent.value = this.renderNotFoundContent(title, details);
+  }
+
+  private clearViewerError() {
+    this.viewerErrorContent.value = undefined;
+  }
+
+  private showViewerWarning(message: string) {
+    this.viewerWarningMessage.value = message;
+  }
+
+  private clearViewerWarning() {
+    this.viewerWarningMessage.value = undefined;
+  }
+
   private isLoadingContent(content?: string): boolean {
     return !content || content === LOADING_CONTENT;
   }
@@ -390,6 +416,14 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
         }}
       />
     );
+  }
+
+  private renderWarningBanner(message?: string) {
+    if (!message) {
+      return null;
+    }
+
+    return <div className="report-warning-banner">{message}</div>;
   }
 
   public render() {
@@ -433,10 +467,25 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
           {this.renderHeaderActions()}
         </div>
         <Observer
+          viewerWarningMessage={this.viewerWarningMessage}
+        >
+          {(props: { viewerWarningMessage?: string }) =>
+            this.renderWarningBanner(props.viewerWarningMessage)
+          }
+        </Observer>
+        <Observer
           selectedReportTabId={this.selectedReportTabId}
           reportContents={this.reportContents}
+          viewerErrorContent={this.viewerErrorContent}
         >
-          {(props: { selectedReportTabId: string }) => {
+          {(props: {
+            selectedReportTabId: string;
+            viewerErrorContent?: string;
+          }) => {
+            if (props.viewerErrorContent) {
+              return this.renderReportHtml(props.viewerErrorContent);
+            }
+
             return this.renderReportHtml(
               this.reportContents.get(props.selectedReportTabId),
             );
@@ -528,14 +577,23 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
           {this.renderHeaderActions()}
         </div>
         <Observer
+          viewerWarningMessage={this.viewerWarningMessage}
+        >
+          {(props: { viewerWarningMessage?: string }) =>
+            this.renderWarningBanner(props.viewerWarningMessage)
+          }
+        </Observer>
+        <Observer
           selectedSummaryTabId={this.selectedSummaryTabId}
           manifestContents={this.manifestContents}
           selectedReportTabId={this.selectedReportTabId}
           reportContents={this.reportContents}
+          viewerErrorContent={this.viewerErrorContent}
         >
           {(props: {
             selectedSummaryTabId: string;
             selectedReportTabId: string;
+            viewerErrorContent?: string;
           }) => {
             const manifestText = this.manifestContents.get(
               props.selectedSummaryTabId,
@@ -564,9 +622,11 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
                     {reportTabs}
                   </TabBar>
                 ) : null}
-                {this.renderReportHtml(
-                  this.reportContents.get(props.selectedReportTabId),
-                )}
+                {props.viewerErrorContent
+                  ? this.renderReportHtml(props.viewerErrorContent)
+                  : this.renderReportHtml(
+                      this.reportContents.get(props.selectedReportTabId),
+                    )}
               </div>
             );
           }}
@@ -661,21 +721,40 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       }
     });
 
-    if (this.navigateToHashedReport(manifest)) {
+    if (this.navigateToHashedReport(manifest, false)) {
       return;
     }
 
     const queryReportAttachment = await this.getHostQueryParam(
       HOST_REPORT_QUERY_KEY,
     );
+    const querySummaryAttachment = await this.getHostQueryParam(
+      HOST_SUMMARY_QUERY_KEY,
+    );
     const queryReportEntry = (manifest.files || manifest.reports).find(
       (report) =>
         report.attachmentName === queryReportAttachment && report.isHtml,
     );
+    const shouldTreatQueryAsCurrentTab =
+      !querySummaryAttachment || querySummaryAttachment === summaryAttachmentName;
+
+    if (
+      queryReportAttachment &&
+      !queryReportEntry &&
+      shouldTreatQueryAsCurrentTab
+    ) {
+      this.showNotFound(
+        'Page not found',
+        `The requested report page "${queryReportAttachment}" does not exist in this tab.`,
+      );
+      return;
+    }
+
     if (queryReportEntry) {
       if (this.reportContents.get(queryReportEntry.attachmentName) === undefined) {
         this.reportContents.add(queryReportEntry.attachmentName, LOADING_CONTENT);
       }
+      this.clearViewerError();
       this.selectedReportTabId.value = queryReportEntry.attachmentName;
       this.syncLocationHash(queryReportEntry.attachmentName);
       this.ensureReportContentLoaded(queryReportEntry.attachmentName);
@@ -684,6 +763,7 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
     const preferredReport = this.getPreferredReport(manifest);
     if (preferredReport) {
+      this.clearViewerError();
       this.selectedReportTabId.value = preferredReport.attachmentName;
       this.syncLocationHash(preferredReport.attachmentName);
       this.ensureReportContentLoaded(preferredReport.attachmentName);
@@ -986,7 +1066,14 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       const resolvedUrl = assetMap.get(resolvedPath);
       if (resolvedUrl) {
         element.setAttribute('href', resolvedUrl);
+        element.removeAttribute(INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE);
+        return;
       }
+
+      element.setAttribute('href', '#');
+      element.setAttribute(INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE, resolvedPath);
+      element.removeAttribute(INTERNAL_REPORT_LINK_ATTRIBUTE);
+      element.removeAttribute('target');
     });
   }
 
@@ -1037,18 +1124,22 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
           return;
         }
 
-        var link = target.closest("a[${INTERNAL_REPORT_LINK_ATTRIBUTE}]");
+        var link = target.closest("a[${INTERNAL_REPORT_LINK_ATTRIBUTE}], a[${INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE}]");
         if (!link) {
           return;
         }
 
         var attachmentName = link.getAttribute("${INTERNAL_REPORT_LINK_ATTRIBUTE}");
-        if (!attachmentName) {
+        event.preventDefault();
+        if (attachmentName) {
+          window.parent.postMessage({ type: "${INTERNAL_REPORT_NAVIGATION_MESSAGE}", attachmentName: attachmentName }, "*");
           return;
         }
 
-        event.preventDefault();
-        window.parent.postMessage({ type: "${INTERNAL_REPORT_NAVIGATION_MESSAGE}", attachmentName: attachmentName }, "*");
+        var missingTarget = link.getAttribute("${INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE}");
+        if (missingTarget) {
+          window.parent.postMessage({ type: "${INTERNAL_REPORT_NAVIGATION_MESSAGE}", missingTarget: missingTarget }, "*");
+        }
       }, true);
     `;
 
@@ -1246,8 +1337,15 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
         .getSummaryAttachments()
         .some((attachment) => attachment.name === hostSummaryAttachment);
       if (hasSummaryAttachment) {
+        this.clearViewerWarning();
         this.selectedSummaryTabId.value = hostSummaryAttachment;
+      } else {
+        this.showViewerWarning(
+          `Requested tab "${hostSummaryAttachment}" was not found. Showing the default tab instead.`,
+        );
       }
+    } else {
+      this.clearViewerWarning();
     }
 
     if (this.selectedSummaryTabId.value) {
@@ -1255,7 +1353,10 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     }
   }
 
-  private navigateToHashedReport(manifest?: ReportManifest): boolean {
+  private navigateToHashedReport(
+    manifest?: ReportManifest,
+    showNotFoundOnMissing: boolean = true,
+  ): boolean {
     const attachmentName = this.getAttachmentNameFromLocationHash();
     if (!attachmentName) {
       return false;
@@ -1266,19 +1367,38 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
         .getLegacyAttachments()
         .find((attachment) => attachment.name === attachmentName);
       if (!targetAttachment) {
+        if (showNotFoundOnMissing) {
+          this.showNotFound(
+            'Page not found',
+            `The requested report page "${attachmentName}" was not found.`,
+          );
+          return true;
+        }
         return false;
       }
 
+      this.clearViewerError();
       this.selectedReportTabId.value = attachmentName;
       this.ensureReportContentLoaded(attachmentName);
       return true;
     }
 
     const selectedManifest = manifest || this.getSelectedManifest();
+    if (!selectedManifest) {
+      return false;
+    }
+
     const linkedEntry = (
-      selectedManifest?.files || selectedManifest?.reports
+      selectedManifest.files || selectedManifest.reports
     )?.find((entry) => entry.attachmentName === attachmentName);
     if (!linkedEntry?.isHtml) {
+      if (showNotFoundOnMissing) {
+        this.showNotFound(
+          'Page not found',
+          `The requested report page "${attachmentName}" does not exist in this tab.`,
+        );
+        return true;
+      }
       return false;
     }
 
@@ -1286,6 +1406,7 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       this.reportContents.add(attachmentName, LOADING_CONTENT);
     }
 
+    this.clearViewerError();
     this.selectedReportTabId.value = attachmentName;
     this.ensureReportContentLoaded(attachmentName);
     return true;
@@ -1324,6 +1445,7 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       }
 
       this.selectedReportTabId.value = firstAttachment.name;
+      this.clearViewerError();
       this.syncLocationHash(firstAttachment.name, pushHistory);
       this.ensureReportContentLoaded(firstAttachment.name);
       return;
@@ -1343,6 +1465,7 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       this.reportContents.add(preferredReport.attachmentName, LOADING_CONTENT);
     }
 
+    this.clearViewerError();
     this.selectedReportTabId.value = preferredReport.attachmentName;
     this.syncLocationHash(preferredReport.attachmentName, pushHistory);
     this.ensureReportContentLoaded(preferredReport.attachmentName);
@@ -1394,7 +1517,12 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
   private onEmbeddedReportMessage = (event: MessageEvent) => {
     const data = event.data as
-      | { type?: string; attachmentName?: string; height?: number }
+      | {
+          type?: string;
+          attachmentName?: string;
+          height?: number;
+          missingTarget?: string;
+        }
       | undefined;
     if (!data || !data.type) {
       return;
@@ -1411,24 +1539,37 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
     if (
       data.type !== INTERNAL_REPORT_NAVIGATION_MESSAGE ||
-      !data.attachmentName
+      (!data.attachmentName && !data.missingTarget)
     ) {
+      return;
+    }
+
+    if (data.missingTarget) {
+      this.showNotFound(
+        'Page not found',
+        `The requested link "${data.missingTarget}" was not found in the published report.`,
+      );
       return;
     }
 
     if (this.reportContents.get(data.attachmentName) === undefined) {
       const manifest = this.getSelectedManifest();
-      const linkedEntry = manifest?.files?.find(
+      const linkedEntry = (manifest?.files || manifest?.reports)?.find(
         (entry) => entry.attachmentName === data.attachmentName,
       );
 
       if (!linkedEntry?.isHtml) {
+        this.showNotFound(
+          'Page not found',
+          `The requested report page "${data.attachmentName}" does not exist in this tab.`,
+        );
         return;
       }
 
       this.reportContents.add(data.attachmentName, LOADING_CONTENT);
     }
 
+    this.clearViewerError();
     this.selectedReportTabId.value = data.attachmentName;
     this.syncLocationHash(data.attachmentName, true);
     this.ensureReportContentLoaded(data.attachmentName);
@@ -1454,6 +1595,8 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
   private onSummaryTabChanged = (newTabId: string) => {
     const isReselectedTab = this.selectedSummaryTabId.value === newTabId;
     this.selectedSummaryTabId.value = newTabId;
+    this.clearViewerError();
+    this.clearViewerWarning();
     const loadManifestPromise = this.loadManifest(newTabId);
     if (isReselectedTab) {
       loadManifestPromise
@@ -1468,12 +1611,14 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
   private onReportTabChanged = (newTabId: string) => {
     this.selectedReportTabId.value = newTabId;
+    this.clearViewerError();
     this.syncLocationHash(newTabId, true);
     this.ensureReportContentLoaded(newTabId);
   };
 
   private onLegacyTabChanged = (newTabId: string) => {
     this.selectedReportTabId.value = newTabId;
+    this.clearViewerError();
     this.syncLocationHash(newTabId, true);
     this.ensureReportContentLoaded(newTabId);
   };

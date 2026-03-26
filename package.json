@@ -1,6 +1,6 @@
 {
   "name": "publish-html-tab",
-  "version": "1.20260326.71269",
+  "version": "1.20260326.83227",
   "private": true,
   "author": "ranouf",
   "dependencies": {
@@ -35,6 +35,7 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "set:auto-version": "node ./scripts/set-auto-version.js",
+    "print:vsix-summary": "node ./scripts/print-vsix-summary.js",
     "build:web": "npm run clean && webpack --mode development",
     "build:cidev": "npm run build:web",
     "build": "npm run build:web",
@@ -47,8 +48,8 @@
     "postinstall": "cd PublishHtmlReport && npm install",
     "test": "echo No test available",
     "prune": "npm prune --production --ignore-scripts",
-    "package-extension": "node --no-warnings ./node_modules/tfx-cli/_build/tfx-cli.js extension create --manifest-globs azure-devops-extension.json --overrides-file dev_manifest.json",
-    "package-extension:release:raw": "node --no-warnings ./node_modules/tfx-cli/_build/tfx-cli.js extension create --manifest-globs azure-devops-extension.json --overrides-file release_manifest.json",
+    "package-extension": "node --no-warnings ./node_modules/tfx-cli/_build/tfx-cli.js extension create --manifest-globs azure-devops-extension.json --overrides-file dev_manifest.json && node ./scripts/print-vsix-summary.js --manifest azure-devops-extension.json --overrides dev_manifest.json",
+    "package-extension:release:raw": "node --no-warnings ./node_modules/tfx-cli/_build/tfx-cli.js extension create --manifest-globs azure-devops-extension.json --overrides-file release_manifest.json && node ./scripts/print-vsix-summary.js --manifest azure-devops-extension.json --overrides release_manifest.json",
     "package-extension:release": "npm run --silent set:auto-version && npm run build:web && npm run package-extension:release:raw"
   },
   "browserslist": {

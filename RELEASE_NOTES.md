@@ -10,6 +10,10 @@
 - Added loading screen inside the extension while reports are being prepared/rendered.
 - Tab header is now sticky so tabs/actions remain visible while scrolling.
 - Download button placement and spacing in the tab area were refined for better UX.
+- Viewer host UI now aligns automatically with the active Azure DevOps theme (light/dark).
+- Added generic in-viewer `404` page when a requested report page does not exist in the current tab.
+- Invalid `phtSummary` (tab not found) now falls back to the default tab with a non-blocking warning banner.
+- Clicking a tab title now safely returns to that tab's first page without cross-tab page mismatch errors.
 
 ### Navigation and deep-linking improvements
 
@@ -66,6 +70,7 @@
   - PR status comment
 - Release workflow now uses `RELEASE_NOTES.md`.
 - Packaging flow fixed so version bump is followed by web rebuild before VSIX creation (ensures displayed extension version matches packaged version).
+- Packaging summary now prints VSIX generation timestamp (`Generated At`) after extension creation.
 
 ### Documentation updates
 
