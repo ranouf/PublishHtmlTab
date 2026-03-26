@@ -10,6 +10,10 @@ import {
   Build,
   BuildRestClient,
 } from 'azure-devops-extension-api/Build';
+import {
+  CommonServiceIds,
+  IHostNavigationService,
+} from 'azure-devops-extension-api/Common/CommonServices';
 
 import {
   ObservableObject,
@@ -30,6 +34,8 @@ const INTERNAL_REPORT_NAVIGATION_MESSAGE = 'publish-html-tab:navigate';
 const INTERNAL_REPORT_HEIGHT_MESSAGE = 'publish-html-tab:height';
 const INTERNAL_REPORT_LINK_ATTRIBUTE = 'data-publish-html-tab-report';
 const INTERNAL_REPORT_HASH_KEY = 'report';
+const HOST_REPORT_QUERY_KEY = 'phtReport';
+const HOST_SUMMARY_QUERY_KEY = 'phtSummary';
 
 interface ReportManifestEntry {
   attachmentName: string;
@@ -271,6 +277,9 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
   private manifestContents: ObservableObject<string>;
   private reportContents: ObservableObject<string>;
   private linkedAssetContentCache: Map<string, Promise<string>>;
+  private scriptBlobUrlCache: Map<string, Promise<string>>;
+  private createdObjectUrls: Set<string>;
+  private hostNavigationServicePromise?: Promise<IHostNavigationService>;
   private componentMounted: boolean = false;
 
   constructor(props: TaskAttachmentPanelProps) {
@@ -290,6 +299,8 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     this.manifestContents = new ObservableObject();
     this.reportContents = new ObservableObject();
     this.linkedAssetContentCache = new Map();
+    this.scriptBlobUrlCache = new Map();
+    this.createdObjectUrls = new Set();
   }
 
   public componentDidMount() {
@@ -305,9 +316,7 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
           this.manifestContents.add(attachment.name, LOADING_CONTENT);
         });
 
-      if (this.selectedSummaryTabId.value) {
-        this.loadManifest(this.selectedSummaryTabId.value);
-      }
+      void this.initializeManifestSelection();
       return;
     }
 
@@ -329,6 +338,8 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
     window.removeEventListener('message', this.onEmbeddedReportMessage);
     window.removeEventListener('hashchange', this.onLocationHashChanged);
     window.removeEventListener('popstate', this.onHistoryChanged);
+    this.createdObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    this.createdObjectUrls.clear();
   }
 
   public escapeHTML(str: string) {
@@ -654,6 +665,23 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       return;
     }
 
+    const queryReportAttachment = await this.getHostQueryParam(
+      HOST_REPORT_QUERY_KEY,
+    );
+    const queryReportEntry = (manifest.files || manifest.reports).find(
+      (report) =>
+        report.attachmentName === queryReportAttachment && report.isHtml,
+    );
+    if (queryReportEntry) {
+      if (this.reportContents.get(queryReportEntry.attachmentName) === undefined) {
+        this.reportContents.add(queryReportEntry.attachmentName, LOADING_CONTENT);
+      }
+      this.selectedReportTabId.value = queryReportEntry.attachmentName;
+      this.syncLocationHash(queryReportEntry.attachmentName);
+      this.ensureReportContentLoaded(queryReportEntry.attachmentName);
+      return;
+    }
+
     const preferredReport = this.getPreferredReport(manifest);
     if (preferredReport) {
       this.selectedReportTabId.value = preferredReport.attachmentName;
@@ -851,12 +879,10 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
           return;
         }
 
-        const scriptContent = await this.getCachedAttachmentContent(
+        const blobScriptUrl = await this.getCachedScriptBlobUrl(
           linkedEntry.attachmentName,
         );
-        const inlineScriptElement = document.createElement('script');
-        inlineScriptElement.textContent = scriptContent;
-        scriptElement.replaceWith(inlineScriptElement);
+        scriptElement.setAttribute('src', blobScriptUrl);
       }),
     );
   }
@@ -876,6 +902,29 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
 
     this.linkedAssetContentCache.set(attachmentName, fetchPromise);
     return fetchPromise;
+  }
+
+  private getCachedScriptBlobUrl(attachmentName: string): Promise<string> {
+    const cached = this.scriptBlobUrlCache.get(attachmentName);
+    if (cached) {
+      return cached;
+    }
+
+    const blobUrlPromise = this.getCachedAttachmentContent(attachmentName)
+      .then((scriptContent) => {
+        const blobUrl = URL.createObjectURL(
+          new Blob([scriptContent], { type: 'text/javascript' }),
+        );
+        this.createdObjectUrls.add(blobUrl);
+        return blobUrl;
+      })
+      .catch((error) => {
+        this.scriptBlobUrlCache.delete(attachmentName);
+        throw error;
+      });
+
+    this.scriptBlobUrlCache.set(attachmentName, blobUrlPromise);
+    return blobUrlPromise;
   }
 
   private rewriteDocumentUrls(
@@ -1142,6 +1191,67 @@ export default class TaskAttachmentPanel extends React.Component<TaskAttachmentP
       } else {
         window.history.replaceState(null, document.title, nextHash);
       }
+    }
+
+    void this.syncHostQueryState(attachmentName);
+  }
+
+  private getHostNavigationService(): Promise<IHostNavigationService> {
+    if (!this.hostNavigationServicePromise) {
+      this.hostNavigationServicePromise = SDK.getService<IHostNavigationService>(
+        CommonServiceIds.HostNavigationService,
+      );
+    }
+
+    return this.hostNavigationServicePromise;
+  }
+
+  private async syncHostQueryState(attachmentName: string): Promise<void> {
+    if (!attachmentName) {
+      return;
+    }
+
+    try {
+      const hostNavigationService = await this.getHostNavigationService();
+      hostNavigationService.setQueryParams({
+        [HOST_REPORT_QUERY_KEY]: attachmentName,
+        [HOST_SUMMARY_QUERY_KEY]: this.selectedSummaryTabId.value || '',
+      });
+    } catch {
+      return;
+    }
+  }
+
+  private async getHostQueryParam(key: string): Promise<string | undefined> {
+    try {
+      const hostNavigationService = await this.getHostNavigationService();
+      const queryParams = await hostNavigationService.getQueryParams();
+      const value = queryParams[key];
+      return value || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async initializeManifestSelection(): Promise<void> {
+    const hostSummaryAttachment = await this.getHostQueryParam(
+      HOST_SUMMARY_QUERY_KEY,
+    );
+    if (!this.componentMounted) {
+      return;
+    }
+
+    if (hostSummaryAttachment) {
+      const hasSummaryAttachment = this.props.attachmentClient
+        .getSummaryAttachments()
+        .some((attachment) => attachment.name === hostSummaryAttachment);
+      if (hasSummaryAttachment) {
+        this.selectedSummaryTabId.value = hostSummaryAttachment;
+      }
+    }
+
+    if (this.selectedSummaryTabId.value) {
+      this.loadManifest(this.selectedSummaryTabId.value);
     }
   }
 
