@@ -1,6 +1,7 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const AdmZip = require('adm-zip');
 const tl = require('azure-pipelines-task-lib/task');
 const dashify = require('dashify');
 const globby = require('globby');
@@ -8,13 +9,18 @@ const { load } = require('cheerio');
 
 const SUMMARY_ATTACHMENT_TYPE = 'report-html';
 const FILE_ATTACHMENT_TYPE = 'report-html-file';
+const DOWNLOAD_ATTACHMENT_TYPE = 'report-html-download';
 
 function getContext() {
   return {
     jobName: dashify(tl.getVariable('Agent.JobName') || 'job'),
-    stageName: dashify(tl.getVariable('System.StageDisplayName') || '__default'),
+    stageName: dashify(
+      tl.getVariable('System.StageDisplayName') || '__default',
+    ),
     stageAttempt: tl.getVariable('System.StageAttempt') || '1',
-    tabName: (tl.getInput('tabName', false) || 'HTML-Report').trim() || 'HTML-Report'
+    tabName:
+      (tl.getInput('tabName', false) || 'HTML-Report').trim() || 'HTML-Report',
+    enableDownloadAll: tl.getBoolInput('enableDownloadAll', false),
   };
 }
 
@@ -31,7 +37,7 @@ function getReportFiles(reportDirInput) {
       cwd: resolvedPath,
       absolute: true,
       dot: true,
-      onlyFiles: true
+      onlyFiles: true,
     });
 
     const htmlFiles = files.filter((filePath) => {
@@ -48,7 +54,9 @@ function getReportFiles(reportDirInput) {
 
   const extension = path.extname(resolvedPath).toLowerCase();
   if (extension !== '.html' && extension !== '.htm') {
-    throw new Error(`reportDir must point to an HTML file or a directory containing HTML files: ${resolvedPath}`);
+    throw new Error(
+      `reportDir must point to an HTML file or a directory containing HTML files: ${resolvedPath}`,
+    );
   }
 
   return [resolvedPath];
@@ -73,8 +81,12 @@ function getFileAttachmentName(context, index, fileName) {
     context.stageName,
     context.stageAttempt,
     String(index),
-    relativePathToken
+    relativePathToken,
   ].join('.');
+}
+
+function getDownloadAttachmentName(context) {
+  return `${context.tabName}.${context.jobName}.${context.stageName}.${context.stageAttempt}.download`;
 }
 
 function isHtmlFile(filePath) {
@@ -97,12 +109,39 @@ function isRootIndexHtml(displayName) {
 }
 
 function shouldExposeInManifest(htmlEntries) {
-  const rootIndexEntry = htmlEntries.find((entry) => isRootIndexHtml(entry.displayName));
+  const rootIndexEntry = htmlEntries.find((entry) =>
+    isRootIndexHtml(entry.displayName),
+  );
   if (rootIndexEntry) {
     return [rootIndexEntry];
   }
 
   return htmlEntries;
+}
+
+function getDownloadFileName(context) {
+  const sanitizedTabName = (context.tabName || 'html-report')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return `${sanitizedTabName || 'html-report'}.zip`;
+}
+
+function createDownloadArchive(reportFiles, reportRoot, archivePath) {
+  const zip = new AdmZip();
+
+  reportFiles.forEach((filePath) => {
+    const archiveEntryName = getDisplayName(reportRoot, filePath);
+    const archiveDirectory = path.dirname(archiveEntryName);
+    zip.addLocalFile(
+      filePath,
+      archiveDirectory === '.' ? '' : archiveDirectory,
+      path.basename(archiveEntryName),
+    );
+  });
+
+  zip.writeZip(archivePath);
 }
 
 function run() {
@@ -121,9 +160,10 @@ function run() {
     stageName: context.stageName,
     stageAttempt: context.stageAttempt,
     files: [],
-    reports: []
+    reports: [],
   };
   const htmlEntries = [];
+  const tempDirectory = tl.getVariable('Agent.TempDirectory') || os.tmpdir();
 
   reportFiles.forEach((filePath, index) => {
     tl.debug(`Publishing report ${filePath}`);
@@ -139,7 +179,7 @@ function run() {
       fileName: path.basename(filePath),
       displayName,
       relativePath: displayName,
-      isHtml: isHtmlFile(filePath)
+      isHtml: isHtmlFile(filePath),
     };
 
     manifest.files.push(manifestEntry);
@@ -148,19 +188,50 @@ function run() {
       htmlEntries.push(manifestEntry);
     }
 
-    tl.command('task.addattachment', {
-      type: FILE_ATTACHMENT_TYPE,
-      name: attachmentName
-    }, filePath);
+    tl.command(
+      'task.addattachment',
+      {
+        type: FILE_ATTACHMENT_TYPE,
+        name: attachmentName,
+      },
+      filePath,
+    );
   });
 
   manifest.reports = shouldExposeInManifest(htmlEntries);
 
-  const tempDirectory = tl.getVariable('Agent.TempDirectory') || os.tmpdir();
-  const manifestPath = path.join(tempDirectory, `publish-html-report-${Date.now()}.json`);
+  if (context.enableDownloadAll) {
+    const downloadFileName = getDownloadFileName(context);
+    const archivePath = path.join(tempDirectory, downloadFileName);
+    createDownloadArchive(reportFiles, reportRoot, archivePath);
+
+    const downloadAttachmentName = getDownloadAttachmentName(context);
+    manifest.downloadAll = {
+      attachmentName: downloadAttachmentName,
+      fileName: downloadFileName,
+    };
+
+    tl.command(
+      'task.addattachment',
+      {
+        type: DOWNLOAD_ATTACHMENT_TYPE,
+        name: downloadAttachmentName,
+      },
+      archivePath,
+    );
+  }
+
+  const manifestPath = path.join(
+    tempDirectory,
+    `publish-html-report-${Date.now()}.json`,
+  );
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
-  tl.addAttachment(SUMMARY_ATTACHMENT_TYPE, getSummaryAttachmentName(context), manifestPath);
+  tl.addAttachment(
+    SUMMARY_ATTACHMENT_TYPE,
+    getSummaryAttachmentName(context),
+    manifestPath,
+  );
 }
 
 try {

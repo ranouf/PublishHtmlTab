@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
           cache: npm
 
       - name: Install root dependencies
@@ -50,5 +50,5 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: PublishHtmlTab ${{ steps.meta.outputs.version }}
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
           files: ${{ steps.meta.outputs.vsix }}

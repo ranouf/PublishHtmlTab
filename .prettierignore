@@ -1,0 +1,6 @@
+dist/**
+node_modules/**
+PublishHtmlReport/node_modules/**
+*.vsix
+package-lock.json
+PublishHtmlReport/package-lock.json
