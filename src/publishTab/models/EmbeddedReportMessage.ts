@@ -2,8 +2,9 @@
  * Represents a postMessage payload sent by the embedded report frame.
  */
 export interface EmbeddedReportMessage {
-  type?: string;
   attachmentName?: string;
   height?: number;
+  href?: string;
   missingTarget?: string;
+  type?: string;
 }

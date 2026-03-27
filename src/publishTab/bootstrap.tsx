@@ -5,6 +5,7 @@ import * as SDK from 'azure-devops-extension-sdk';
 import { Build } from 'azure-devops-extension-api/Build';
 
 import { PublishTabContainer } from './controllers/PublishTabContainer';
+import { createAnalyticsTracker } from './infrastructure/analytics/createAnalyticsTracker';
 import { BuildAttachmentClient } from './services/attachments/BuildAttachmentClient';
 
 let renderSequence = 0;
@@ -19,12 +20,18 @@ let renderSequence = 0;
 export function initializePublishTab(appVersion: string): void {
   // Boot once, then let Azure DevOps push build context updates to the tab.
   SDK.init();
+  const analyticsTracker = createAnalyticsTracker();
 
   SDK.ready()
     .then(() => {
+      const resolvedAppVersion = getResolvedAppVersion(appVersion);
       const configuration = SDK.getConfiguration();
       configuration.onBuildChanged((build: Build) => {
-        void renderBuildReports(build, appVersion).catch((error) => {
+        void renderBuildReports(
+          build,
+          resolvedAppVersion,
+          analyticsTracker,
+        ).catch((error) => {
           throw normalizeError(error);
         });
       });
@@ -45,6 +52,7 @@ export function initializePublishTab(appVersion: string): void {
 async function renderBuildReports(
   build: Build,
   appVersion: string,
+  analyticsTracker: ReturnType<typeof createAnalyticsTracker>,
 ): Promise<void> {
   // Each build gets a fresh client and a remounted feature tree.
   const attachmentClient = new BuildAttachmentClient(build);
@@ -64,6 +72,8 @@ async function renderBuildReports(
     <PublishTabContainer
       appVersion={appVersion}
       attachmentClient={attachmentClient}
+      analyticsTracker={analyticsTracker}
+      buildId={build.id}
       key={renderKey}
     />,
     containerElement,
@@ -80,4 +90,15 @@ async function renderBuildReports(
  */
 function normalizeError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+/**
+ * Resolves the extension version shown in the UI from the Azure DevOps host context.
+ *
+ * @param {string} fallbackVersion - Build-time version embedded in the bundle.
+ * @returns {string} Host extension version when available, otherwise the build-time fallback.
+ */
+function getResolvedAppVersion(fallbackVersion: string): string {
+  const hostVersion = SDK.getExtensionContext()?.version;
+  return hostVersion || fallbackVersion;
 }

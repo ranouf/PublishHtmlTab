@@ -1,5 +1,6 @@
 import {
   INTERNAL_REPORT_HEIGHT_MESSAGE,
+  INTERNAL_REPORT_LINK_CLICK_MESSAGE,
   INTERNAL_REPORT_LINK_ATTRIBUTE,
   INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE,
   INTERNAL_REPORT_NAVIGATION_MESSAGE,
@@ -611,17 +612,22 @@ export class ReportHtmlService {
         var target = event.target;
         if (!(target instanceof Element)) { return; }
 
-        var link = target.closest("a[${INTERNAL_REPORT_LINK_ATTRIBUTE}], a[${INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE}]");
+        var link = target.closest("a[href]");
         if (!link) { return; }
 
+        var href = link.getAttribute("href") || "";
         var attachmentName = link.getAttribute("${INTERNAL_REPORT_LINK_ATTRIBUTE}");
+        var missingTarget = link.getAttribute("${INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE}");
+        window.parent.postMessage({ type: "${INTERNAL_REPORT_LINK_CLICK_MESSAGE}", attachmentName: attachmentName, href: href, missingTarget: missingTarget }, "*");
+
+        if (!attachmentName && !missingTarget) { return; }
+
         event.preventDefault();
         if (attachmentName) {
           window.parent.postMessage({ type: "${INTERNAL_REPORT_NAVIGATION_MESSAGE}", attachmentName: attachmentName }, "*");
           return;
         }
 
-        var missingTarget = link.getAttribute("${INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE}");
         if (missingTarget) {
           window.parent.postMessage({ type: "${INTERNAL_REPORT_NAVIGATION_MESSAGE}", missingTarget: missingTarget }, "*");
         }

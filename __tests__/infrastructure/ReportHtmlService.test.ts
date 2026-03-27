@@ -126,6 +126,7 @@ describe('ReportHtmlService', () => {
     expect(srcdoc).toContain('url("https://downloads/bg.png")');
     expect(srcdoc).toContain('src="blob:script-url"');
     expect(srcdoc).toContain('publish-html-tab:height');
+    expect(srcdoc).toContain('publish-html-tab:link-click');
     expect(srcdoc).toContain('publish-html-tab:navigate');
   });
 
