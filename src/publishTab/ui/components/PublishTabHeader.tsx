@@ -15,9 +15,13 @@ export function PublishTabHeader(props: PublishTabHeaderProps): JSX.Element {
   // Header rendering stays declarative: tabs in, callbacks out.
   const versionLink = renderVersionLink(props.appVersion);
 
-  return <div className="report-tab-header">{props.isManifestMode
-    ? renderManifestHeader(props, versionLink)
-    : renderLegacyHeader(props, versionLink)}</div>;
+  return (
+    <div className="report-tab-header">
+      {props.isManifestMode
+        ? renderManifestHeader(props, versionLink)
+        : renderLegacyHeader(props, versionLink)}
+    </div>
+  );
 }
 
 /**

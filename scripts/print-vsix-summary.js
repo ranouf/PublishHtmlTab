@@ -59,9 +59,10 @@ function readExtensionInfo(rootDir, args) {
     ? path.join(rootDir, args.overrides)
     : undefined;
   const manifest = readJson(manifestPath);
-  const overrides = overridesPath && fs.existsSync(overridesPath)
-    ? readJson(overridesPath)
-    : {};
+  const overrides =
+    overridesPath && fs.existsSync(overridesPath)
+      ? readJson(overridesPath)
+      : {};
   const merged = {
     ...manifest,
     ...overrides,

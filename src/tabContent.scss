@@ -2,36 +2,36 @@
   font-size: 14px;
   margin-bottom: 10px;
   font-family:
-    "Segoe UI VSS (Regular)",
-    "Segoe UI",
+    'Segoe UI VSS (Regular)',
+    'Segoe UI',
     -apple-system,
     BlinkMacSystemFont,
     Roboto,
-    "Helvetica Neue",
+    'Helvetica Neue',
     Helvetica,
     Ubuntu,
     Arial,
     sans-serif,
-    "Apple Color Emoji",
-    "Segoe UI Emoji",
-    "Segoe UI Symbol";
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol';
 }
 
 .publish-html-tab-shell {
   font-family:
-    "Segoe UI VSS (Regular)",
-    "Segoe UI",
+    'Segoe UI VSS (Regular)',
+    'Segoe UI',
     -apple-system,
     BlinkMacSystemFont,
     Roboto,
-    "Helvetica Neue",
+    'Helvetica Neue',
     Helvetica,
     Ubuntu,
     Arial,
     sans-serif,
-    "Apple Color Emoji",
-    "Segoe UI Emoji",
-    "Segoe UI Symbol";
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol';
   font-size: 14px;
 }
 
@@ -391,8 +391,7 @@
 
 .report-warning-banner {
   background: var(--status-warning-background, rgba(251, 242, 236, 1));
-  border: 1px solid
-    var(--status-warning-icon-foreground, rgba(177, 133, 37, 1));
+  border: 1px solid var(--status-warning-icon-foreground, rgba(177, 133, 37, 1));
   color: var(--status-warning-text, rgba(184, 94, 6, 1));
   font-size: 12px;
   margin: 8px 0;

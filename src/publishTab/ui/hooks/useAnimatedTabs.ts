@@ -69,9 +69,10 @@ function useTabRegistry(): {
     {},
   );
   const registerTab = React.useCallback(
-    (tabId: string) => (element: HTMLDivElement | null): void => {
-      tabElementsRef.current[tabId] = element;
-    },
+    (tabId: string) =>
+      (element: HTMLDivElement | null): void => {
+        tabElementsRef.current[tabId] = element;
+      },
     [],
   );
 
@@ -95,7 +96,11 @@ function useIndicatorState(
     width: 0,
     x: 0,
   });
-  const updateIndicator = useIndicatorUpdater(tabElementsRef, selectedTabId, setIndicator);
+  const updateIndicator = useIndicatorUpdater(
+    tabElementsRef,
+    selectedTabId,
+    setIndicator,
+  );
 
   useIndicatorResizeSync(tabElementsRef, tabs, updateIndicator);
   React.useLayoutEffect(() => {

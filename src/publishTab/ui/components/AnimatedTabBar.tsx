@@ -61,7 +61,12 @@ function renderTabViewport(
     >
       <div className="publish-tab-strip__list">
         {props.tabs.map((tab) =>
-          renderTabItem(tab, props, tab.id === props.selectedTabId, registerTab),
+          renderTabItem(
+            tab,
+            props,
+            tab.id === props.selectedTabId,
+            registerTab,
+          ),
         )}
         {renderIndicator(indicator)}
       </div>
@@ -90,21 +95,43 @@ function renderTabItem(
     : null;
 
   return (
-    <div className={className} key={tab.id} ref={registerTab(tab.id)}>
-      <button
-        aria-selected={isSelected}
-        className="publish-tab-strip__trigger"
-        onClick={() => {
-          props.onSelectedTabChanged(tab.id);
-        }}
-        role="tab"
-        tabIndex={isSelected ? 0 : -1}
-        type="button"
-      >
-        <span className="publish-tab-strip__label">{tab.label}</span>
-      </button>
+    <div
+      className={className}
+      key={tab.id}
+      ref={registerTab(tab.id)}
+    >
+      {renderTabTrigger(tab, props.onSelectedTabChanged, isSelected)}
       {trailingAction}
     </div>
+  );
+}
+
+/**
+ * Renders the interactive button used to select one tab.
+ *
+ * @param {AnimatedTabBarProps['tabs'][number]} tab - Tab descriptor to render.
+ * @param {(tabId: string) => void} onSelectedTabChanged - Callback fired when the tab is selected.
+ * @param {boolean} isSelected - Indicates whether this tab is currently active.
+ * @returns {JSX.Element} Tab trigger button markup.
+ */
+function renderTabTrigger(
+  tab: AnimatedTabBarProps['tabs'][number],
+  onSelectedTabChanged: (tabId: string) => void,
+  isSelected: boolean,
+): JSX.Element {
+  return (
+    <button
+      aria-selected={isSelected}
+      className="publish-tab-strip__trigger"
+      onClick={() => {
+        onSelectedTabChanged(tab.id);
+      }}
+      role="tab"
+      tabIndex={isSelected ? 0 : -1}
+      type="button"
+    >
+      <span className="publish-tab-strip__label">{tab.label}</span>
+    </button>
   );
 }
 
@@ -152,10 +179,7 @@ function getTabItemClassName(isSelected: boolean): string {
  * @param {{ x: number; width: number }} indicator - Current underline position and width.
  * @returns {JSX.Element} Underline indicator markup.
  */
-function renderIndicator(indicator: {
-  x: number;
-  width: number;
-}): JSX.Element {
+function renderIndicator(indicator: { x: number; width: number }): JSX.Element {
   return (
     <span
       aria-hidden="true"
