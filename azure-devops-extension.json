@@ -21,6 +21,17 @@
     "type": "git",
     "uri": "https://github.com/ranouf/PublishHtmlTab"
   },
+  "links": {
+    "repository": {
+      "uri": "https://github.com/ranouf/PublishHtmlTab"
+    },
+    "support": {
+      "uri": "https://github.com/ranouf/PublishHtmlTab/issues"
+    },
+    "privacypolicy": {
+      "uri": "https://github.com/ranouf/PublishHtmlTab/blob/main/PRIVACY.md"
+    }
+  },
   "content": {
     "details": {
       "path": "OVERVIEW.md"
