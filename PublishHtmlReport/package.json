@@ -1,10 +1,11 @@
 {
   "name": "publish-html-report",
-  "version": "1.20260320.86174",
+  "version": "1.20260327.15813",
   "description": "",
   "main": "index.js",
   "private": true,
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "azure-pipelines-task-lib": "^5.2.1",
     "cheerio": "^1.0.0",
     "dashify": "^2.0.0",

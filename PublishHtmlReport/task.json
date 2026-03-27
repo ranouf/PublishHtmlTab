@@ -6,14 +6,12 @@
   "author": "ranouf",
   "helpMarkDown": "Publishes an HTML report or a report directory into the Azure DevOps build results experience.",
   "category": "Utility",
-  "visibility": [
-    "Build"
-  ],
+  "visibility": ["Build"],
   "demands": [],
   "version": {
     "Major": "1",
-    "Minor": "20260320",
-    "Patch": "86174"
+    "Minor": "20260327",
+    "Patch": "15813"
   },
   "minimumAgentVersion": "1.95.0",
   "instanceNameFormat": "Publish Html Tab",
@@ -33,6 +31,14 @@
       "defaultValue": "",
       "required": true,
       "helpMarkDown": "Path to a single HTML file or to a directory whose contents are published recursively."
+    },
+    {
+      "name": "enableDownloadAll",
+      "type": "boolean",
+      "label": "Enable full report download",
+      "defaultValue": "false",
+      "required": false,
+      "helpMarkDown": "When enabled, the task creates a .zip archive of the published HTML file or directory and exposes a download button in the extension viewer."
     }
   ],
   "execution": {

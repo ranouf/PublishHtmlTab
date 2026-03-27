@@ -1,15 +1,19 @@
 name: PR Validation
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 on:
   pull_request:
     branches:
       - main
 
 jobs:
-  validate:
+  validate-extension:
+    name: Validate Extension
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout
@@ -18,8 +22,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            PublishHtmlReport/package-lock.json
 
       - name: Install root dependencies
         run: npm ci --ignore-scripts --legacy-peer-deps
@@ -28,8 +35,137 @@ jobs:
         run: npm ci --legacy-peer-deps
         working-directory: PublishHtmlReport
 
+      - name: Run Prettier check
+        id: prettier
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: Run ESLint
+        id: lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run tests
+        id: test
+        run: npm run test:ci
+        continue-on-error: true
+
+      - name: Collect coverage summary
+        id: coverage
+        if: always() && steps.test.outcome != 'skipped'
+        shell: bash
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "statements=n/a" >> $GITHUB_OUTPUT
+            echo "branches=n/a" >> $GITHUB_OUTPUT
+            echo "functions=n/a" >> $GITHUB_OUTPUT
+            echo "lines=n/a" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('coverage/coverage-summary.json','utf8')).total; const out=process.env.GITHUB_OUTPUT; fs.appendFileSync(out, 'statements=' + summary.statements.pct + '%\n'); fs.appendFileSync(out, 'branches=' + summary.branches.pct + '%\n'); fs.appendFileSync(out, 'functions=' + summary.functions.pct + '%\n'); fs.appendFileSync(out, 'lines=' + summary.lines.pct + '%\n');"
+
+      - name: Upload coverage artifact
+        if: always() && steps.test.outcome != 'skipped' && hashFiles('coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+
+      - name: Publish coverage summary
+        if: always() && steps.test.outcome != 'skipped'
+        shell: bash
+        run: |
+          {
+            echo "## Test Coverage"
+            echo ""
+            echo "| Metric | Coverage |"
+            echo "| --- | --- |"
+            echo "| Statements | ${{ steps.coverage.outputs.statements }} |"
+            echo "| Branches | ${{ steps.coverage.outputs.branches }} |"
+            echo "| Functions | ${{ steps.coverage.outputs.functions }} |"
+            echo "| Lines | ${{ steps.coverage.outputs.lines }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build web extension
+        id: build
         run: npm run build:web
+        continue-on-error: true
 
       - name: Package release VSIX
+        id: package
         run: npm run package-extension:release
+        continue-on-error: true
+
+      - name: Collect validation status
+        id: validation_status
+        if: always()
+        run: |
+          status () {
+            if [ "$1" = "success" ]; then echo "pass"; else echo "fail"; fi
+          }
+
+          prettier_status=$(status "${{ steps.prettier.outcome }}")
+          lint_status=$(status "${{ steps.lint.outcome }}")
+          test_status=$(status "${{ steps.test.outcome }}")
+          build_status=$(status "${{ steps.build.outcome }}")
+          package_status=$(status "${{ steps.package.outcome }}")
+
+          echo "prettier=$prettier_status" >> $GITHUB_OUTPUT
+          echo "lint=$lint_status" >> $GITHUB_OUTPUT
+          echo "test=$test_status" >> $GITHUB_OUTPUT
+          echo "build=$build_status" >> $GITHUB_OUTPUT
+          echo "package=$package_status" >> $GITHUB_OUTPUT
+
+          should_fail=false
+          if [ "$prettier_status" = "fail" ] || [ "$lint_status" = "fail" ] || [ "$test_status" = "fail" ] || [ "$build_status" = "fail" ] || [ "$package_status" = "fail" ]; then
+            should_fail=true
+          fi
+
+          echo "should_fail=$should_fail" >> $GITHUB_OUTPUT
+
+      - name: Find existing validation comment
+        id: find_comment
+        if: always() && github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: publish-html-tab-validation
+
+      - name: Create or update validation summary
+        if: always() && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            <!-- publish-html-tab-validation -->
+            ## Publish HTML Tab Validation
+
+            [![Prettier](https://img.shields.io/badge/Prettier-${{ steps.validation_status.outputs.prettier }}-${{ steps.validation_status.outputs.prettier == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            [![Lint](https://img.shields.io/badge/Lint-${{ steps.validation_status.outputs.lint }}-${{ steps.validation_status.outputs.lint == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            [![Tests](https://img.shields.io/badge/Tests-${{ steps.validation_status.outputs.test }}-${{ steps.validation_status.outputs.test == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            [![Build](https://img.shields.io/badge/Build-${{ steps.validation_status.outputs.build }}-${{ steps.validation_status.outputs.build == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            [![Package](https://img.shields.io/badge/Package-${{ steps.validation_status.outputs.package }}-${{ steps.validation_status.outputs.package == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ---
+            **Coverage**
+
+            - Statements: `${{ steps.coverage.outputs.statements }}`
+            - Branches: `${{ steps.coverage.outputs.branches }}`
+            - Functions: `${{ steps.coverage.outputs.functions }}`
+            - Lines: `${{ steps.coverage.outputs.lines }}`
+
+            ---
+            [View full run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Enforce validation gate
+        if: always()
+        run: |
+          if [ "${{ steps.validation_status.outputs.should_fail }}" = "true" ]; then
+            echo "Validation failed (Prettier, ESLint, Tests, Build or Package)"
+            exit 1
+          fi
