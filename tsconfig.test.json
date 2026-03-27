@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react",
+    "lib": ["dom", "es2020"],
+    "module": "commonjs",
+    "target": "es2020",
+    "types": ["jest", "node", "react", "@testing-library/jest-dom"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "__tests__/**/*.ts", "__tests__/**/*.tsx", "jest.setup.ts"]
+}

@@ -1,5 +1,9 @@
 # PublishHtmlTab
 
+[![PR Validation](https://github.com/ranouf/PublishHtmlTab/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/ranouf/PublishHtmlTab/actions/workflows/pr-validation.yml)
+[![Release VSIX](https://github.com/ranouf/PublishHtmlTab/actions/workflows/release-vsix.yml/badge.svg)](https://github.com/ranouf/PublishHtmlTab/actions/workflows/release-vsix.yml)
+[![Tests](https://img.shields.io/badge/tests-jest%20%2B%20rtl-brightgreen)](https://github.com/ranouf/PublishHtmlTab/actions/workflows/pr-validation.yml)
+
 This project extends Azure DevOps with a custom pipeline task that publishes HTML content directly inside the build results UI.
 
 ## Credits
@@ -109,10 +113,18 @@ The PR validation workflow runs:
 
 - Prettier check
 - ESLint
+- Jest + React Testing Library test suite
 - web extension build
 - VSIX packaging
 
 It also posts a pull request comment with pass/fail badges for each validation step.
+
+The test suite enforces a global coverage gate in CI:
+
+- statements: `>= 84%`
+- lines: `>= 84%`
+- functions: `>= 90%`
+- branches: `>= 67%`
 
 The release workflow does not publish to the Visual Studio Marketplace.  
 It only generates the `.vsix` package so it can be uploaded manually.
@@ -131,6 +143,14 @@ Use the VSIX attached to the GitHub Release, or generate one locally with:
 ```bash
 npm run build:release
 ```
+
+To run the frontend test suite locally:
+
+```bash
+npm run test:ci
+```
+
+This command also verifies the enforced coverage thresholds used by CI.
 
 ### 2. Upload The VSIX To Marketplace
 

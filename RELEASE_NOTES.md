@@ -62,12 +62,20 @@
 ### Tooling, CI, and packaging
 
 - Added Prettier + ESLint setup and scripts.
+- Added Jest + React Testing Library test infrastructure for domain, application, infrastructure, and presentation layers.
+- Added coverage enforcement in CI:
+  - statements >= 84%
+  - lines >= 84%
+  - functions >= 90%
+  - branches >= 67%
 - Improved PR validation workflow:
   - format check
   - lint
+  - tests + coverage
   - build
   - VSIX packaging
   - PR status comment
+- Release workflow now runs the test suite before generating the VSIX.
 - Release workflow now uses `RELEASE_NOTES.md`.
 - Packaging flow fixed so version bump is followed by web rebuild before VSIX creation (ensures displayed extension version matches packaged version).
 - Packaging summary now prints VSIX generation timestamp (`Generated At`) after extension creation.
@@ -79,5 +87,6 @@
 
 ### Validation summary
 
+- `npm run test:ci`: pass
 - `npm run lint`: pass
 - `npm run build`: pass

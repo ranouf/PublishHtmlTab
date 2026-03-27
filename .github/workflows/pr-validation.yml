@@ -45,6 +45,48 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      - name: Run tests
+        id: test
+        run: npm run test:ci
+        continue-on-error: true
+
+      - name: Collect coverage summary
+        id: coverage
+        if: always() && steps.test.outcome != 'skipped'
+        shell: bash
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "statements=n/a" >> $GITHUB_OUTPUT
+            echo "branches=n/a" >> $GITHUB_OUTPUT
+            echo "functions=n/a" >> $GITHUB_OUTPUT
+            echo "lines=n/a" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          node -e "const fs=require('fs'); const summary=JSON.parse(fs.readFileSync('coverage/coverage-summary.json','utf8')).total; const out=process.env.GITHUB_OUTPUT; fs.appendFileSync(out, 'statements=' + summary.statements.pct + '%\n'); fs.appendFileSync(out, 'branches=' + summary.branches.pct + '%\n'); fs.appendFileSync(out, 'functions=' + summary.functions.pct + '%\n'); fs.appendFileSync(out, 'lines=' + summary.lines.pct + '%\n');"
+
+      - name: Upload coverage artifact
+        if: always() && steps.test.outcome != 'skipped' && hashFiles('coverage/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+
+      - name: Publish coverage summary
+        if: always() && steps.test.outcome != 'skipped'
+        shell: bash
+        run: |
+          {
+            echo "## Test Coverage"
+            echo ""
+            echo "| Metric | Coverage |"
+            echo "| --- | --- |"
+            echo "| Statements | ${{ steps.coverage.outputs.statements }} |"
+            echo "| Branches | ${{ steps.coverage.outputs.branches }} |"
+            echo "| Functions | ${{ steps.coverage.outputs.functions }} |"
+            echo "| Lines | ${{ steps.coverage.outputs.lines }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build web extension
         id: build
         run: npm run build:web
@@ -65,16 +107,18 @@ jobs:
 
           prettier_status=$(status "${{ steps.prettier.outcome }}")
           lint_status=$(status "${{ steps.lint.outcome }}")
+          test_status=$(status "${{ steps.test.outcome }}")
           build_status=$(status "${{ steps.build.outcome }}")
           package_status=$(status "${{ steps.package.outcome }}")
 
           echo "prettier=$prettier_status" >> $GITHUB_OUTPUT
           echo "lint=$lint_status" >> $GITHUB_OUTPUT
+          echo "test=$test_status" >> $GITHUB_OUTPUT
           echo "build=$build_status" >> $GITHUB_OUTPUT
           echo "package=$package_status" >> $GITHUB_OUTPUT
 
           should_fail=false
-          if [ "$prettier_status" = "fail" ] || [ "$lint_status" = "fail" ] || [ "$build_status" = "fail" ] || [ "$package_status" = "fail" ]; then
+          if [ "$prettier_status" = "fail" ] || [ "$lint_status" = "fail" ] || [ "$test_status" = "fail" ] || [ "$build_status" = "fail" ] || [ "$package_status" = "fail" ]; then
             should_fail=true
           fi
 
@@ -103,8 +147,17 @@ jobs:
 
             [![Prettier](https://img.shields.io/badge/Prettier-${{ steps.validation_status.outputs.prettier }}-${{ steps.validation_status.outputs.prettier == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             [![Lint](https://img.shields.io/badge/Lint-${{ steps.validation_status.outputs.lint }}-${{ steps.validation_status.outputs.lint == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            [![Tests](https://img.shields.io/badge/Tests-${{ steps.validation_status.outputs.test }}-${{ steps.validation_status.outputs.test == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             [![Build](https://img.shields.io/badge/Build-${{ steps.validation_status.outputs.build }}-${{ steps.validation_status.outputs.build == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             [![Package](https://img.shields.io/badge/Package-${{ steps.validation_status.outputs.package }}-${{ steps.validation_status.outputs.package == 'fail' && 'red' || 'brightgreen' }})](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ---
+            **Coverage**
+
+            - Statements: `${{ steps.coverage.outputs.statements }}`
+            - Branches: `${{ steps.coverage.outputs.branches }}`
+            - Functions: `${{ steps.coverage.outputs.functions }}`
+            - Lines: `${{ steps.coverage.outputs.lines }}`
 
             ---
             [View full run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -113,6 +166,6 @@ jobs:
         if: always()
         run: |
           if [ "${{ steps.validation_status.outputs.should_fail }}" = "true" ]; then
-            echo "Validation failed (Prettier, ESLint, Build or Package)"
+            echo "Validation failed (Prettier, ESLint, Tests, Build or Package)"
             exit 1
           fi
