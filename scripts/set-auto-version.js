@@ -24,42 +24,46 @@ function getAutoVersion() {
   return `1.${year}${month}${day}.${runSuffix}`;
 }
 
-function main() {
-  const version = process.argv[2] || getAutoVersion();
-  const rootDir = path.resolve(__dirname, '..');
+function updateVersionField(filePath, version) {
+  const content = readJson(filePath);
+  content.version = version;
+  writeJson(filePath, content);
+}
 
-  const rootPackagePath = path.join(rootDir, 'package.json');
-  const taskPackagePath = path.join(
-    rootDir,
-    'PublishHtmlReport',
-    'package.json',
-  );
-  const extensionManifestPath = path.join(
-    rootDir,
-    'azure-devops-extension.json',
-  );
-  const taskManifestPath = path.join(rootDir, 'PublishHtmlReport', 'task.json');
-
-  const rootPackage = readJson(rootPackagePath);
-  rootPackage.version = version;
-  writeJson(rootPackagePath, rootPackage);
-
-  const taskPackage = readJson(taskPackagePath);
-  taskPackage.version = version;
-  writeJson(taskPackagePath, taskPackage);
-
-  const extensionManifest = readJson(extensionManifestPath);
-  extensionManifest.version = version;
-  writeJson(extensionManifestPath, extensionManifest);
-
-  const taskManifest = readJson(taskManifestPath);
+function updateTaskManifestVersion(filePath, version) {
+  const taskManifest = readJson(filePath);
   const [major, minor, patch] = version.split('.');
   taskManifest.version = {
     Major: major,
     Minor: minor,
     Patch: patch,
   };
-  writeJson(taskManifestPath, taskManifest);
+  writeJson(filePath, taskManifest);
+}
+
+function getVersionFilePaths(rootDir) {
+  return {
+    extensionManifestPath: path.join(rootDir, 'azure-devops-extension.json'),
+    rootPackagePath: path.join(rootDir, 'package.json'),
+    taskManifestPath: path.join(rootDir, 'PublishHtmlReport', 'task.json'),
+    taskPackagePath: path.join(rootDir, 'PublishHtmlReport', 'package.json'),
+  };
+}
+
+function main() {
+  const version = process.argv[2] || getAutoVersion();
+  const rootDir = path.resolve(__dirname, '..');
+  const {
+    extensionManifestPath,
+    rootPackagePath,
+    taskManifestPath,
+    taskPackagePath,
+  } = getVersionFilePaths(rootDir);
+
+  updateVersionField(rootPackagePath, version);
+  updateVersionField(taskPackagePath, version);
+  updateVersionField(extensionManifestPath, version);
+  updateTaskManifestVersion(taskManifestPath, version);
 
   process.stdout.write(version);
 }

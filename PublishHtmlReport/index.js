@@ -144,16 +144,8 @@ function createDownloadArchive(reportFiles, reportRoot, archivePath) {
   zip.writeZip(archivePath);
 }
 
-function run() {
-  const reportDirInput = tl.getInput('reportDir', true);
-  const resolvedInputPath = path.resolve(reportDirInput);
-  const reportFiles = getReportFiles(reportDirInput);
-  const context = getContext();
-  const reportRoot = fs.statSync(resolvedInputPath).isDirectory()
-    ? resolvedInputPath
-    : path.dirname(resolvedInputPath);
-
-  const manifest = {
+function createManifest(context) {
+  return {
     schemaVersion: 1,
     tabName: context.tabName,
     jobName: context.jobName,
@@ -162,8 +154,39 @@ function run() {
     files: [],
     reports: [],
   };
+}
+
+function getReportRoot(resolvedInputPath) {
+  return fs.statSync(resolvedInputPath).isDirectory()
+    ? resolvedInputPath
+    : path.dirname(resolvedInputPath);
+}
+
+function createManifestEntry(context, index, filePath, reportRoot) {
+  const displayName = getDisplayName(reportRoot, filePath);
+
+  return {
+    attachmentName: getFileAttachmentName(context, index, displayName),
+    fileName: path.basename(filePath),
+    displayName,
+    relativePath: displayName,
+    isHtml: isHtmlFile(filePath),
+  };
+}
+
+function publishReportFile(filePath, attachmentName) {
+  tl.command(
+    'task.addattachment',
+    {
+      type: FILE_ATTACHMENT_TYPE,
+      name: attachmentName,
+    },
+    filePath,
+  );
+}
+
+function addReportFilesToManifest(reportFiles, reportRoot, context, manifest) {
   const htmlEntries = [];
-  const tempDirectory = tl.getVariable('Agent.TempDirectory') || os.tmpdir();
 
   reportFiles.forEach((filePath, index) => {
     tl.debug(`Publishing report ${filePath}`);
@@ -171,56 +194,48 @@ function run() {
       normalizeHtml(filePath);
     }
 
-    const displayName = getDisplayName(reportRoot, filePath);
-    const attachmentName = getFileAttachmentName(context, index, displayName);
-
-    const manifestEntry = {
-      attachmentName,
-      fileName: path.basename(filePath),
-      displayName,
-      relativePath: displayName,
-      isHtml: isHtmlFile(filePath),
-    };
-
+    const manifestEntry = createManifestEntry(
+      context,
+      index,
+      filePath,
+      reportRoot,
+    );
     manifest.files.push(manifestEntry);
 
     if (manifestEntry.isHtml) {
       htmlEntries.push(manifestEntry);
     }
 
-    tl.command(
-      'task.addattachment',
-      {
-        type: FILE_ATTACHMENT_TYPE,
-        name: attachmentName,
-      },
-      filePath,
-    );
+    publishReportFile(filePath, manifestEntry.attachmentName);
   });
 
   manifest.reports = shouldExposeInManifest(htmlEntries);
+}
 
-  if (context.enableDownloadAll) {
-    const downloadFileName = getDownloadFileName(context);
-    const archivePath = path.join(tempDirectory, downloadFileName);
-    createDownloadArchive(reportFiles, reportRoot, archivePath);
+function addDownloadArchive(reportFiles, reportRoot, context, manifest) {
+  const tempDirectory = tl.getVariable('Agent.TempDirectory') || os.tmpdir();
+  const downloadFileName = getDownloadFileName(context);
+  const archivePath = path.join(tempDirectory, downloadFileName);
+  createDownloadArchive(reportFiles, reportRoot, archivePath);
 
-    const downloadAttachmentName = getDownloadAttachmentName(context);
-    manifest.downloadAll = {
-      attachmentName: downloadAttachmentName,
-      fileName: downloadFileName,
-    };
+  const downloadAttachmentName = getDownloadAttachmentName(context);
+  manifest.downloadAll = {
+    attachmentName: downloadAttachmentName,
+    fileName: downloadFileName,
+  };
 
-    tl.command(
-      'task.addattachment',
-      {
-        type: DOWNLOAD_ATTACHMENT_TYPE,
-        name: downloadAttachmentName,
-      },
-      archivePath,
-    );
-  }
+  tl.command(
+    'task.addattachment',
+    {
+      type: DOWNLOAD_ATTACHMENT_TYPE,
+      name: downloadAttachmentName,
+    },
+    archivePath,
+  );
+}
 
+function publishSummaryManifest(context, manifest) {
+  const tempDirectory = tl.getVariable('Agent.TempDirectory') || os.tmpdir();
   const manifestPath = path.join(
     tempDirectory,
     `publish-html-report-${Date.now()}.json`,
@@ -232,6 +247,23 @@ function run() {
     getSummaryAttachmentName(context),
     manifestPath,
   );
+}
+
+function run() {
+  const reportDirInput = tl.getInput('reportDir', true);
+  const resolvedInputPath = path.resolve(reportDirInput);
+  const reportFiles = getReportFiles(reportDirInput);
+  const context = getContext();
+  const reportRoot = getReportRoot(resolvedInputPath);
+  const manifest = createManifest(context);
+
+  addReportFilesToManifest(reportFiles, reportRoot, context, manifest);
+
+  if (context.enableDownloadAll) {
+    addDownloadArchive(reportFiles, reportRoot, context, manifest);
+  }
+
+  publishSummaryManifest(context, manifest);
 }
 
 try {

@@ -29,7 +29,17 @@ module.exports = defineConfig([
       },
     },
     rules: {
+      complexity: ['error', 10],
       'linebreak-style': ['error', 'unix'],
+      'max-depth': ['error', 3],
+      'max-lines-per-function': [
+        'error',
+        {
+          max: 30,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
       'no-control-regex': 'off',
     },
   },
@@ -60,7 +70,17 @@ module.exports = defineConfig([
         },
       ],
       '@typescript-eslint/member-ordering': 'off',
+      complexity: ['error', 10],
       'linebreak-style': ['error', 'unix'],
+      'max-depth': ['error', 3],
+      'max-lines-per-function': [
+        'error',
+        {
+          max: 30,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
       'no-duplicate-imports': 'error',
       'no-undef': 'off',
       'preserve-caught-error': 'off',

@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "publish-html-tab",
   "publisher": "ranouf",
-  "version": "1.20260326.83227",
+  "version": "1.20260327.15813",
   "author": "ranouf",
   "name": "Publish Html Tab",
   "description": "Publish HTML reports in Azure Pipelines",
