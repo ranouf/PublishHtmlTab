@@ -1,5 +1,27 @@
 # Release Notes
 
+## [V2.1] Privacy policy and extension support metadata
+
+### User-facing changes
+
+- Added a published privacy policy for the extension.
+- Added explicit marketplace metadata for:
+  - repository
+  - support/issues
+  - privacy policy
+
+### Compliance and marketplace readiness
+
+- Added `PRIVACY.md` to document:
+  - what limited analytics data may be collected
+  - what data is not intentionally collected
+  - Google Analytics usage and minimization safeguards
+  - browser and environment controls such as Do Not Track
+- Updated the extension manifest so Azure DevOps/marketplace metadata now exposes:
+  - repository link
+  - support link
+  - privacy policy link
+
 ## [V2] In-tab navigation, Cobertura compatibility, and full-report download
 
 ### User-facing changes
