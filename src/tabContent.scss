@@ -191,7 +191,7 @@
 
 .publish-tab-strip__scroll-button:disabled {
   color: var(--palette-neutral-30, #c8c6c4);
-  cursor: default;
+  cursor: not-allowed;
 }
 
 .publish-tab-strip__scroll-icon {

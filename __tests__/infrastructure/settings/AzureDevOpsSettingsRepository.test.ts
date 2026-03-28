@@ -64,6 +64,18 @@ describe('AzureDevOpsSettingsRepository', () => {
     });
   });
 
+  it('falls back to the default setting when the tracking document does not exist yet', async () => {
+    getValueMock.mockRejectedValue({
+      message: '404 (Not Found)',
+      statusCode: 404,
+    });
+    const repository = new AzureDevOpsSettingsRepository();
+
+    await expect(repository.getSettings()).resolves.toEqual({
+      trackingEnabled: true,
+    });
+  });
+
   it('persists the tracking setting through the extension data manager', async () => {
     setValueMock.mockResolvedValue(false);
     const repository = new AzureDevOpsSettingsRepository();

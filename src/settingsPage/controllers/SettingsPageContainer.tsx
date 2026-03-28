@@ -1,12 +1,23 @@
 import * as React from 'react';
 
 import { getSettings } from '../../publishTab/application/settings/getSettings';
+import { trackTrackingDisabled } from '../../publishTab/application/tracking/trackTrackingDisabled';
+import { trackTrackingEnabled } from '../../publishTab/application/tracking/trackTrackingEnabled';
+import { trackTrackingErrorOccurred } from '../../publishTab/application/tracking/trackTrackingErrorOccurred';
+import { trackTrackingSettingsOpened } from '../../publishTab/application/tracking/trackTrackingSettingsOpened';
 import { updateSettings } from '../../publishTab/application/settings/updateSettings';
 import { SettingsRepository } from '../../publishTab/domain/settings';
+import {
+  BaseSettingsTrackingPayload,
+  TrackingPort,
+} from '../../publishTab/domain/tracking';
+import { normalizeErrorKind } from '../../publishTab/infrastructure/tracking/sanitizers';
 import { SettingsPageView } from '../ui/components/SettingsPageView';
 
 interface SettingsPageContainerProps {
+  appVersion: string;
   repository: SettingsRepository;
+  trackingPort: TrackingPort;
 }
 
 interface SettingsPageContainerState {
@@ -48,6 +59,12 @@ export class SettingsPageContainer extends React.Component<
    */
   public componentDidMount(): void {
     this.isMountedFlag = true;
+    this.runTrackingTask(
+      trackTrackingSettingsOpened(
+        this.props.trackingPort,
+        this.getSettingsTrackingPayload(),
+      ),
+    );
     void this.loadSettings();
   }
 
@@ -86,27 +103,9 @@ export class SettingsPageContainer extends React.Component<
   private async loadSettings(): Promise<void> {
     try {
       const settings = await getSettings(this.props.repository);
-      if (!this.isMountedFlag) {
-        return;
-      }
-
-      this.setState({
-        trackingEnabled: settings.trackingEnabled,
-        errorMessage: undefined,
-        isLoading: false,
-        statusMessage: undefined,
-      });
-    } catch {
-      if (!this.isMountedFlag) {
-        return;
-      }
-
-      this.setState({
-        errorMessage:
-          'Unable to load settings right now. Please refresh and try again.',
-        isLoading: false,
-        statusMessage: undefined,
-      });
+      this.applyLoadedSettings(settings.trackingEnabled);
+    } catch (error) {
+      this.handleLoadError(error);
     }
   }
 
@@ -120,23 +119,174 @@ export class SettingsPageContainer extends React.Component<
     const previousValue = this.state.trackingEnabled;
 
     this.beginSaving(trackingEnabled);
+    this.trackTrackingDisabledBeforeSaveIfNeeded(trackingEnabled);
 
     void updateSettings(this.props.repository, { trackingEnabled })
       .then((savedSettings) => {
-        if (!this.isMountedFlag) {
-          return;
-        }
-
-        this.completeSaving(savedSettings.trackingEnabled);
+        this.handleSaveSuccess(savedSettings.trackingEnabled);
       })
-      .catch(() => {
-        if (!this.isMountedFlag) {
-          return;
-        }
-
-        this.failSaving(previousValue);
+      .catch((error) => {
+        this.handleSaveError(previousValue, error);
       });
   };
+
+  /**
+   * Applies settings loaded successfully from persistence.
+   *
+   * @param {boolean} trackingEnabled - Persisted tracking state.
+   * @returns {void} Does not return a value.
+   */
+  private applyLoadedSettings(trackingEnabled: boolean): void {
+    if (!this.isMountedFlag) {
+      return;
+    }
+
+    this.setState({
+      trackingEnabled,
+      errorMessage: undefined,
+      isLoading: false,
+      statusMessage: undefined,
+    });
+  }
+
+  /**
+   * Handles a settings-load failure with a sanitized tracking event and user-facing error.
+   *
+   * @param {unknown} error - Raw storage error.
+   * @returns {void} Does not return a value.
+   */
+  private handleLoadError(error: unknown): void {
+    if (!this.isMountedFlag) {
+      return;
+    }
+
+    this.trackSettingsError('load_settings', error);
+    this.setState({
+      errorMessage:
+        'Unable to load settings right now. Please refresh and try again.',
+      isLoading: false,
+      statusMessage: undefined,
+    });
+  }
+
+  /**
+   * Handles a successful settings save by emitting the matching tracking event and updating state.
+   *
+   * @param {boolean} trackingEnabled - Persisted tracking state.
+   * @returns {void} Does not return a value.
+   */
+  private handleSaveSuccess(trackingEnabled: boolean): void {
+    if (!this.isMountedFlag) {
+      return;
+    }
+
+    this.trackTrackingEnabledAfterSaveIfNeeded(trackingEnabled);
+    this.completeSaving(trackingEnabled);
+  }
+
+  /**
+   * Handles a settings-save failure with a sanitized tracking event and state rollback.
+   *
+   * @param {boolean} previousValue - Previously persisted tracking state.
+   * @param {unknown} error - Raw storage error.
+   * @returns {void} Does not return a value.
+   */
+  private handleSaveError(previousValue: boolean, error: unknown): void {
+    if (!this.isMountedFlag) {
+      return;
+    }
+
+    this.trackSettingsError('save_settings', error);
+    this.failSaving(previousValue);
+  }
+
+  /**
+   * Builds the shared settings tracking payload.
+   *
+   * @returns {BaseSettingsTrackingPayload} Shared settings tracking payload.
+   */
+  private getSettingsTrackingPayload(): BaseSettingsTrackingPayload {
+    return {
+      extensionVersion: this.props.appVersion,
+      scope: 'organization',
+      source: 'settings_page',
+    };
+  }
+
+  /**
+   * Emits the sanitized tracking event matching the saved settings preference.
+   *
+   * @param {trackingEnabled} trackingEnabled - Persisted tracking state.
+   * @returns {void} Does not return a value.
+   */
+  private trackTrackingDisabledBeforeSaveIfNeeded(
+    trackingEnabled: boolean,
+  ): void {
+    if (trackingEnabled) {
+      return;
+    }
+
+    this.runTrackingTask(
+      trackTrackingDisabled(
+        this.props.trackingPort,
+        this.getSettingsTrackingPayload(),
+      ),
+    );
+  }
+
+  /**
+   * Emits the enabled event only after the persisted save succeeds.
+   *
+   * @param {boolean} trackingEnabled - Persisted tracking state.
+   * @returns {void} Does not return a value.
+   */
+  private trackTrackingEnabledAfterSaveIfNeeded(
+    trackingEnabled: boolean,
+  ): void {
+    if (!trackingEnabled) {
+      return;
+    }
+
+    this.runTrackingTask(
+      trackTrackingEnabled(
+        this.props.trackingPort,
+        this.getSettingsTrackingPayload(),
+      ),
+    );
+  }
+
+  /**
+   * Emits a sanitized settings error event without exposing raw error details.
+   *
+   * @param {'load_settings' | 'save_settings'} operation - Settings operation that failed.
+   * @param {unknown} error - Raw error value.
+   * @returns {void} Does not return a value.
+   */
+  private trackSettingsError(
+    operation: 'load_settings' | 'save_settings',
+    error: unknown,
+  ): void {
+    this.runTrackingTask(
+      trackTrackingErrorOccurred(this.props.trackingPort, {
+        ...this.getSettingsTrackingPayload(),
+        errorKind: normalizeErrorKind(error),
+        operation,
+        surface: 'settings_page',
+      }),
+    );
+  }
+
+  /**
+   * Executes one tracking task without surfacing failures to the UI.
+   *
+   * @param {Promise<void>} task - Tracking task to execute.
+   * @returns {void} Does not return a value.
+   */
+  private runTrackingTask(task: Promise<void>): void {
+    task.catch(() => {
+      return;
+    });
+  }
 
   /**
    * Updates the UI to reflect a settings save in progress.

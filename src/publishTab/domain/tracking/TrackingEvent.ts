@@ -6,6 +6,10 @@ import {
   PublishTabNavigationFailedEvent,
   PublishTabOpenedEvent,
   PublishTabSelectedEvent,
+  TrackingDisabledEvent,
+  TrackingEnabledEvent,
+  TrackingErrorOccurredEvent,
+  TrackingSettingsOpenedEvent,
 } from './TrackingPayload';
 
 /**
@@ -18,6 +22,10 @@ export interface TrackingEventPayloadMap {
   [trackingEvents.publishTabNavigationFailed]: PublishTabNavigationFailedEvent;
   [trackingEvents.publishTabOpened]: PublishTabOpenedEvent;
   [trackingEvents.publishTabSelected]: PublishTabSelectedEvent;
+  [trackingEvents.trackingDisabled]: TrackingDisabledEvent;
+  [trackingEvents.trackingEnabled]: TrackingEnabledEvent;
+  [trackingEvents.trackingErrorOccurred]: TrackingErrorOccurredEvent;
+  [trackingEvents.trackingSettingsOpened]: TrackingSettingsOpenedEvent;
 }
 
 /**

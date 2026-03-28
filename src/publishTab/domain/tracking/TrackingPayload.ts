@@ -36,8 +36,29 @@ export type TrackingErrorKind =
   | 'missing_link'
   | 'missing_report'
   | 'network'
+  | 'not_found'
   | 'unauthorized'
   | 'unknown';
+
+/**
+ * Enumerates the supported settings scopes used by tracking events.
+ */
+export type TrackingSettingsScope = 'organization';
+
+/**
+ * Enumerates the supported settings sources used by tracking events.
+ */
+export type TrackingSettingsSource = 'settings_page';
+
+/**
+ * Enumerates the supported operations emitted by sanitized tracking error events.
+ */
+export type TrackingErrorOperation = 'load_settings' | 'save_settings';
+
+/**
+ * Enumerates the supported surfaces emitted by sanitized tracking error events.
+ */
+export type TrackingErrorSurface = 'settings_page';
 
 /**
  * Buckets manifest sizes to avoid sending raw file counts for large reports.
@@ -57,6 +78,15 @@ export interface BaseTrackingPayload {
   buildId: number;
   extensionVersion: string;
   mode: TrackingMode;
+}
+
+/**
+ * Defines the shared metadata attached to settings-related tracking events.
+ */
+export interface BaseSettingsTrackingPayload {
+  extensionVersion: string;
+  scope: TrackingSettingsScope;
+  source: TrackingSettingsSource;
 }
 
 /**
@@ -117,4 +147,28 @@ export interface PublishTabNavigationFailedEvent extends BaseTrackingPayload {
   errorKind: TrackingErrorKind;
   navigationSource: TrackingNavigationSource;
   targetPathHash?: string;
+}
+
+/**
+ * Describes the event sent when the settings page is opened.
+ */
+export type TrackingSettingsOpenedEvent = BaseSettingsTrackingPayload;
+
+/**
+ * Describes the event sent when tracking is enabled from the settings page.
+ */
+export type TrackingEnabledEvent = BaseSettingsTrackingPayload;
+
+/**
+ * Describes the event sent when tracking is disabled from the settings page.
+ */
+export type TrackingDisabledEvent = BaseSettingsTrackingPayload;
+
+/**
+ * Describes the event sent when a sanitized settings error is captured.
+ */
+export interface TrackingErrorOccurredEvent extends BaseSettingsTrackingPayload {
+  errorKind: TrackingErrorKind;
+  operation: TrackingErrorOperation;
+  surface: TrackingErrorSurface;
 }

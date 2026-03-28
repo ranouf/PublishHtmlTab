@@ -59,6 +59,22 @@ const EVENT_MAPPERS: Record<TrackingEvent['name'], TrackingEventMapper> = {
     mapSelectedEvent(
       event as TrackingEvent<typeof trackingEvents.publishTabSelected>,
     ),
+  [trackingEvents.trackingDisabled]: (event) =>
+    mapSettingsPreferenceEvent(
+      event as TrackingEvent<typeof trackingEvents.trackingDisabled>,
+    ),
+  [trackingEvents.trackingEnabled]: (event) =>
+    mapSettingsPreferenceEvent(
+      event as TrackingEvent<typeof trackingEvents.trackingEnabled>,
+    ),
+  [trackingEvents.trackingErrorOccurred]: (event) =>
+    mapTrackingErrorOccurredEvent(
+      event as TrackingEvent<typeof trackingEvents.trackingErrorOccurred>,
+    ),
+  [trackingEvents.trackingSettingsOpened]: (event) =>
+    mapSettingsOpenedEvent(
+      event as TrackingEvent<typeof trackingEvents.trackingSettingsOpened>,
+    ),
 };
 
 /**
@@ -209,11 +225,41 @@ export function mapTrackingEvent(event: TrackingEvent): TrackingParams {
  * @param {TrackingEvent} event - Strict PublishTab tracking event.
  * @returns {TrackingParams} Common tracking event properties.
  */
-function mapCommonParams(event: TrackingEvent): TrackingParams {
+function mapCommonParams(
+  event: TrackingEvent<
+    | typeof trackingEvents.publishTabDownloadClicked
+    | typeof trackingEvents.publishTabDownloadFailed
+    | typeof trackingEvents.publishTabLinkClicked
+    | typeof trackingEvents.publishTabNavigationFailed
+    | typeof trackingEvents.publishTabOpened
+    | typeof trackingEvents.publishTabSelected
+  >,
+): TrackingParams {
   return {
     build_id: event.payload.buildId,
     extension_version: event.payload.extensionVersion,
     mode: event.payload.mode,
+  };
+}
+
+/**
+ * Maps the shared settings tracking context to common event properties.
+ *
+ * @param {TrackingEvent<typeof trackingEvents.trackingDisabled | typeof trackingEvents.trackingEnabled | typeof trackingEvents.trackingErrorOccurred | typeof trackingEvents.trackingSettingsOpened>} event - Strict settings tracking event.
+ * @returns {TrackingParams} Common settings tracking event properties.
+ */
+function mapSettingsCommonParams(
+  event: TrackingEvent<
+    | typeof trackingEvents.trackingDisabled
+    | typeof trackingEvents.trackingEnabled
+    | typeof trackingEvents.trackingErrorOccurred
+    | typeof trackingEvents.trackingSettingsOpened
+  >,
+): TrackingParams {
+  return {
+    extension_version: event.payload.extensionVersion,
+    scope: event.payload.scope,
+    source: event.payload.source,
   };
 }
 
@@ -337,6 +383,50 @@ function mapNavigationFailedEvent(
     error_kind: event.payload.errorKind,
     navigation_source: event.payload.navigationSource,
     target_path_hash: event.payload.targetPathHash,
+  };
+}
+
+/**
+ * Maps the settings-opened event to event properties.
+ *
+ * @param {TrackingEvent<typeof trackingEvents.trackingSettingsOpened>} event - Typed settings-opened event.
+ * @returns {TrackingParams} Whitelisted event properties.
+ */
+function mapSettingsOpenedEvent(
+  event: TrackingEvent<typeof trackingEvents.trackingSettingsOpened>,
+): TrackingParams {
+  return mapSettingsCommonParams(event);
+}
+
+/**
+ * Maps the tracking-enabled and tracking-disabled events to event properties.
+ *
+ * @param {TrackingEvent<typeof trackingEvents.trackingEnabled | typeof trackingEvents.trackingDisabled>} event - Typed settings preference event.
+ * @returns {TrackingParams} Whitelisted event properties.
+ */
+function mapSettingsPreferenceEvent(
+  event: TrackingEvent<
+    | typeof trackingEvents.trackingEnabled
+    | typeof trackingEvents.trackingDisabled
+  >,
+): TrackingParams {
+  return mapSettingsCommonParams(event);
+}
+
+/**
+ * Maps the sanitized tracking error event to event properties.
+ *
+ * @param {TrackingEvent<typeof trackingEvents.trackingErrorOccurred>} event - Typed sanitized tracking error event.
+ * @returns {TrackingParams} Whitelisted event properties.
+ */
+function mapTrackingErrorOccurredEvent(
+  event: TrackingEvent<typeof trackingEvents.trackingErrorOccurred>,
+): TrackingParams {
+  return {
+    ...mapSettingsCommonParams(event),
+    error_kind: event.payload.errorKind,
+    operation: event.payload.operation,
+    surface: event.payload.surface,
   };
 }
 

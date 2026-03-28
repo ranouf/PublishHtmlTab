@@ -39,6 +39,7 @@ describe('tracking sanitizers', () => {
   it('normalizes known error categories for tracking-safe reporting', () => {
     expect(normalizeErrorKind(new Error('403 Forbidden'))).toBe('unauthorized');
     expect(normalizeErrorKind(new Error('Failed to fetch'))).toBe('network');
+    expect(normalizeErrorKind(new Error('404 Not Found'))).toBe('not_found');
     expect(normalizeErrorKind(new Error('Download failed'))).toBe(
       'download_failed',
     );

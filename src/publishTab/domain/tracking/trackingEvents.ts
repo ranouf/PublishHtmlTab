@@ -8,6 +8,10 @@ export const trackingEvents = {
   publishTabNavigationFailed: 'publish_tab_navigation_failed',
   publishTabOpened: 'publish_tab_opened',
   publishTabSelected: 'publish_tab_selected',
+  trackingDisabled: 'tracking_disabled',
+  trackingEnabled: 'tracking_enabled',
+  trackingErrorOccurred: 'tracking_error_occurred',
+  trackingSettingsOpened: 'tracking_settings_opened',
 } as const;
 
 /**

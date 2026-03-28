@@ -16,6 +16,18 @@ import {
 import {
   trackPublishTabSelected,
 } from '../../src/publishTab/application/tracking/trackPublishTabSelected';
+import {
+  trackTrackingDisabled,
+} from '../../src/publishTab/application/tracking/trackTrackingDisabled';
+import {
+  trackTrackingEnabled,
+} from '../../src/publishTab/application/tracking/trackTrackingEnabled';
+import {
+  trackTrackingErrorOccurred,
+} from '../../src/publishTab/application/tracking/trackTrackingErrorOccurred';
+import {
+  trackTrackingSettingsOpened,
+} from '../../src/publishTab/application/tracking/trackTrackingSettingsOpened';
 import type { TrackingPort } from '../../src/publishTab/domain/tracking';
 
 describe('tracking use cases', () => {
@@ -103,6 +115,33 @@ describe('tracking use cases', () => {
       'publish_tab_download_failed',
       'publish_tab_link_clicked',
       'publish_tab_navigation_failed',
+    ]);
+  });
+
+  it('forwards settings tracking events with their dedicated names', async () => {
+    const basePayload = {
+      extensionVersion: '1.2.3',
+      scope: 'organization' as const,
+      source: 'settings_page' as const,
+    };
+
+    await trackTrackingSettingsOpened(tracker, basePayload);
+    await trackTrackingEnabled(tracker, basePayload);
+    await trackTrackingDisabled(tracker, basePayload);
+    await trackTrackingErrorOccurred(tracker, {
+      ...basePayload,
+      errorKind: 'not_found',
+      operation: 'load_settings',
+      surface: 'settings_page',
+    });
+
+    expect(
+      (tracker.track as jest.Mock).mock.calls.map(([event]) => event.name),
+    ).toEqual([
+      'tracking_settings_opened',
+      'tracking_enabled',
+      'tracking_disabled',
+      'tracking_error_occurred',
     ]);
   });
 });

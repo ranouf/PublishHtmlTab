@@ -112,6 +112,28 @@ describe('TrackingClient', () => {
         navigation_source: 'internal_link',
       }),
     );
+
+    expect(
+      mapTrackingEvent({
+        name: trackingEvents.trackingErrorOccurred,
+        payload: {
+          errorKind: 'not_found',
+          extensionVersion: '1.2.3',
+          operation: 'load_settings',
+          scope: 'organization',
+          source: 'settings_page',
+          surface: 'settings_page',
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        error_kind: 'not_found',
+        operation: 'load_settings',
+        scope: 'organization',
+        source: 'settings_page',
+        surface: 'settings_page',
+      }),
+    );
   });
 
   it('sends events through the Amplitude HTTP V2 API', async () => {

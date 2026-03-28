@@ -2,8 +2,9 @@
 
 ## Current Release
 
-- Added an organization-level settings page to enable or disable anonymous tracking.
-- Replaced the previous tracking implementation with Amplitude HTTP V2 tracking.
-- Removed temporary tracking debug logging from the extension runtime.
-- Kept the existing typed tracking model and event whitelist used by the extension.
-- Updated privacy documentation and marketplace metadata to reflect the current tracking behavior.
+- Added an organization-level settings page in Azure DevOps to enable or disable anonymous tracking.
+- Replaced the previous Google Analytics approach with Amplitude HTTP V2 tracking.
+- Renamed the codebase and documentation vocabulary from analytics to tracking for consistency.
+- Updated the privacy policy and extension metadata to reflect the current tracking behavior.
+- Improved settings loading to safely fall back to defaults when the persisted tracking document does not exist yet.
+- Improved the disabled chevron UX so the cursor clearly indicates when no scrolling action is available.

@@ -103,17 +103,16 @@ export function normalizeErrorKind(error: unknown): TrackingErrorKind {
       ? error.message.toLowerCase()
       : String(error).toLowerCase();
 
-  if (
-    message.includes('401') ||
-    message.includes('403') ||
-    message.includes('forbidden') ||
-    message.includes('unauthorized')
-  ) {
+  if (containsAny(message, ['401', '403', 'forbidden', 'unauthorized'])) {
     return 'unauthorized';
   }
 
-  if (message.includes('network') || message.includes('failed to fetch')) {
+  if (containsAny(message, ['network', 'failed to fetch'])) {
     return 'network';
+  }
+
+  if (containsAny(message, ['404', 'not found'])) {
+    return 'not_found';
   }
 
   if (message.includes('download')) {
@@ -121,6 +120,17 @@ export function normalizeErrorKind(error: unknown): TrackingErrorKind {
   }
 
   return 'unknown';
+}
+
+/**
+ * Indicates whether the provided message contains any of the supplied fragments.
+ *
+ * @param {string} message - Normalized error message.
+ * @param {string[]} fragments - Candidate fragments to search for.
+ * @returns {boolean} `true` when at least one fragment is present.
+ */
+function containsAny(message: string, fragments: string[]): boolean {
+  return fragments.some((fragment) => message.includes(fragment));
 }
 
 /**

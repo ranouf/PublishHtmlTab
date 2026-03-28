@@ -70,7 +70,7 @@ export class AzureDevOpsSettingsRepository implements SettingsRepository {
   }
 
   /**
-   * Loads the persisted tracking flag while treating an uninitialized settings collection as a safe default.
+   * Loads the persisted tracking flag while treating missing settings storage as a safe default.
    *
    * @param {IExtensionDataManager} manager - Azure DevOps data manager bound to this extension.
    * @returns {Promise<boolean | undefined>} Persisted tracking flag when it exists.
@@ -82,7 +82,7 @@ export class AzureDevOpsSettingsRepository implements SettingsRepository {
     try {
       return await manager.getValue<boolean>(TRACKING_ENABLED_KEY);
     } catch (error) {
-      if (isMissingSettingsCollectionError(error)) {
+      if (isMissingSettingsError(error)) {
         return undefined;
       }
 
@@ -111,12 +111,12 @@ async function createExtensionDataManager(): Promise<IExtensionDataManager> {
 }
 
 /**
- * Indicates whether Azure DevOps is reporting that the settings collection has not been created yet.
+ * Indicates whether Azure DevOps is reporting that the settings storage or document does not exist yet.
  *
  * @param {unknown} error - Raw storage error raised by the extension data service.
- * @returns {boolean} `true` when the settings collection does not exist yet.
+ * @returns {boolean} `true` when the settings collection or document does not exist yet.
  */
-function isMissingSettingsCollectionError(error: unknown): boolean {
+function isMissingSettingsError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
@@ -124,10 +124,27 @@ function isMissingSettingsCollectionError(error: unknown): boolean {
   const errorCandidate = error as {
     message?: string;
     typeKey?: string;
+    status?: number;
+    statusCode?: number;
   };
 
+  const knownTypeKeys = new Set([
+    'DocumentCollectionDoesNotExistException',
+    'DocumentDoesNotExistException',
+    'DocumentNotFoundException',
+  ]);
+  const knownMessageFragments = [
+    'The collection does not exist',
+    'The document does not exist',
+    '404',
+  ];
+
   return (
-    errorCandidate.typeKey === 'DocumentCollectionDoesNotExistException' ||
-    errorCandidate.message?.includes('The collection does not exist') === true
+    errorCandidate.status === 404 ||
+    errorCandidate.statusCode === 404 ||
+    knownTypeKeys.has(errorCandidate.typeKey ?? '') ||
+    knownMessageFragments.some((fragment) =>
+      errorCandidate.message?.includes(fragment),
+    ) === true
   );
 }

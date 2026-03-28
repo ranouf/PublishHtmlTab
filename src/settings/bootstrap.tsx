@@ -3,6 +3,7 @@ import * as ReactDOM from 'react-dom';
 import * as SDK from 'azure-devops-extension-sdk';
 
 import { createSettingsRepository } from '../publishTab/infrastructure/settings/createSettingsRepository';
+import { createTrackingPort } from '../publishTab/infrastructure/tracking/createTrackingPort';
 import { SettingsPageContainer } from '../settingsPage/controllers/SettingsPageContainer';
 
 /**
@@ -23,7 +24,11 @@ export function initializeSettingsPage(): void {
       }
 
       ReactDOM.render(
-        <SettingsPageContainer repository={createSettingsRepository()} />,
+        <SettingsPageContainer
+          appVersion={getResolvedAppVersion()}
+          repository={createSettingsRepository()}
+          trackingPort={createTrackingPort(true)}
+        />,
         containerElement,
       );
 
@@ -34,4 +39,14 @@ export function initializeSettingsPage(): void {
         error instanceof Error ? error.message : String(error),
       );
     });
+}
+
+/**
+ * Resolves the extension version displayed and attached to settings tracking events.
+ *
+ * @returns {string} Resolved extension version or a safe fallback.
+ */
+function getResolvedAppVersion(): string {
+  const version = SDK.getExtensionContext().version?.trim();
+  return version || 'unknown';
 }
