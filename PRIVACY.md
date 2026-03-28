@@ -10,28 +10,18 @@ Repository: [https://github.com/ranouf/PublishHtmlTab](https://github.com/ranouf
 
 PublishHtmlTab displays published HTML reports inside Azure DevOps.
 
-In branch `v.2.2`, the extension includes a Google Analytics integration for limited product-usage telemetry. That telemetry is intended to help understand feature usage and navigation or download issues within the extension.
+The extension includes a limited anonymous tracking implementation used to understand feature usage and diagnose navigation or download issues within the extension.
 
-The implementation is designed to reduce the amount of data sent in analytics events. However, use of Google Analytics means certain technical request metadata may still be processed by Google as part of providing that service.
+## Tracking Provider
 
-## Google Analytics
-
-The extension uses **Google Analytics 4** (`gtag.js`) in branch `v.2.2`.
+The extension currently sends telemetry to **Amplitude** using the HTTP V2 API.
 
 Based on the current implementation:
 
-- analytics is enabled by default in the client code because a Google Analytics measurement ID is embedded in the extension bundle
-- analytics is not sent when the browser reports **Do Not Track** as enabled
-- analytics may also fail to load or send because of browser settings, content security restrictions, network controls, ad/tracker blocking, or similar runtime conditions
-
-The Google Analytics integration is configured to:
-
-- disable automatic page view tracking
-- disable Google Signals
-- disable ad personalization signals
-- request IP anonymization
-- use a fixed Marketplace page location rather than the live Azure DevOps page URL
-- clear the page referrer value
+- tracking is enabled by default because the extension bundle contains a public Amplitude project API key
+- tracking is not sent when the browser reports **Do Not Track** as enabled
+- tracking is not sent when the organization-level setting disables it
+- tracking is not sent when the local diagnostic override disables it
 
 ## Events Tracked
 
@@ -44,9 +34,9 @@ The implementation currently tracks the following event types:
 - link clicks inside rendered reports
 - navigation failures inside the extension
 
-## Data Intended to Be Sent in Analytics
+## Data Intended to Be Sent in Tracking Events
 
-The analytics implementation is designed to send only a limited set of technical and interaction fields, such as:
+The tracking implementation is designed to send only a limited set of technical and interaction fields, such as:
 
 - Azure DevOps build identifier
 - extension version
@@ -60,47 +50,48 @@ The analytics implementation is designed to send only a limited set of technical
 - normalized error category
 - coarse timing values related to interactions
 - a hashed value derived from certain internal report paths
+- a generated anonymous device identifier stored locally by the extension
 
-These values are mapped through a fixed whitelist in the code before being passed to Google Analytics.
+These values are mapped through a fixed whitelist in the code before being sent.
 
-## Data the Analytics Payload Is Not Designed to Send
+## Data the Tracking Payload Is Not Designed to Send
 
-Based on the current implementation, the analytics payload is not designed to intentionally send the following to Google Analytics:
+Based on the current implementation, the tracking payload is not designed to intentionally send the following:
 
 - report HTML content
 - raw report content
 - access tokens
 - raw query string values from tracked report paths
 - raw external link URLs
-- raw internal report paths when a tracked path is included in analytics
+- raw internal report paths when a tracked path is included in tracking
 - usernames
 - email addresses
 - other direct personal identifiers entered by users
 
-Internal tracked paths are normalized and hashed before transmission. External links are classified by category only, without forwarding the raw external URL in the analytics event payload.
+Internal tracked paths are normalized and hashed before transmission. External links are classified by category only, without forwarding the raw external URL in the tracking payload.
 
 ## Azure DevOps Host State
 
-Separately from Google Analytics, the extension updates Azure DevOps host query parameters to preserve report navigation state. This may include internal attachment identifiers such as the selected report or summary tab.
+Separately from tracking, the extension updates Azure DevOps host query parameters to preserve report navigation state. This may include internal attachment identifiers such as the selected report or summary tab.
 
-This host-state behavior is part of the extension’s navigation experience and is distinct from the Google Analytics payload.
+This host-state behavior is part of the extension’s navigation experience and is distinct from the tracking payload.
 
 ## Third-Party Processing
 
-When analytics is active, data is transmitted to **Google Analytics**, a third-party service operated by Google.
+When tracking is active, data is transmitted to **Amplitude**, a third-party tracking service.
 
-As with other web analytics services, Google may process technical request metadata necessary to provide the service. Depending on Google’s infrastructure and your organization’s configuration, this processing may occur outside the country where the user is located.
+As with other tracking services, Amplitude may process technical request metadata necessary to provide the service. Depending on Amplitude’s infrastructure and your organization’s configuration, this processing may occur outside the country where the user is located.
 
-Google’s handling of data is governed by Google’s own terms and privacy documentation, including:
+Amplitude’s handling of data is governed by Amplitude’s own terms and privacy documentation, including:
 
-- [Google Privacy Policy](https://policies.google.com/privacy)
-- [How Google uses information from sites or apps that use its services](https://policies.google.com/technologies/partner-sites)
+- [Amplitude Privacy Notice](https://amplitude.com/privacy)
+- [Amplitude Security Overview](https://amplitude.com/security)
 
 ## Data Retention
 
-This repository does not maintain a separate analytics database for PublishHtmlTab.
+This repository does not maintain a separate tracking database for PublishHtmlTab.
 
-If analytics is sent, retention and further processing are governed by the configuration of the relevant Google Analytics property and by Google’s own service practices.
+If tracking is sent, retention and further processing are governed by the configuration of the relevant Amplitude project and by Amplitude’s own service practices.
 
 ## Security and Data Minimization
 
@@ -110,13 +101,14 @@ The current implementation includes data-minimization measures such as:
 - explicit parameter whitelisting
 - normalization of tracked internal paths
 - hashing of tracked internal paths before transmission
-- suppression of analytics when Do Not Track is enabled
+- suppression of tracking when Do Not Track is enabled
+- organization-level control to disable tracking
 
-These measures reduce, but do not eliminate, privacy risk. Organizations should evaluate whether the use of Google Analytics is appropriate for their environment and compliance requirements.
+These measures reduce, but do not eliminate, privacy risk. Organizations should evaluate whether the use of Amplitude is appropriate for their environment and compliance requirements.
 
 ## Changes to This Policy
 
-This Privacy Policy may be updated to reflect changes to the extension, its analytics implementation, or applicable requirements. The latest version will be published in this repository.
+This Privacy Policy may be updated to reflect changes to the extension, its tracking implementation, or applicable requirements. The latest version will be published in this repository.
 
 ## Contact
 

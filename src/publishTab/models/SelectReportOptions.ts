@@ -3,6 +3,7 @@
  */
 export interface SelectReportOptions {
   clearViewerError?: boolean;
+  onSelected?: () => void;
   pushHistory: boolean;
   syncLocationHash?: boolean;
 }

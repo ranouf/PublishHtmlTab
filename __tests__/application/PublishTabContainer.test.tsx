@@ -6,8 +6,10 @@ import {
   HOST_SUMMARY_QUERY_KEY,
   INTERNAL_REPORT_FRAME_ATTRIBUTE,
   INTERNAL_REPORT_HEIGHT_MESSAGE,
+  INTERNAL_REPORT_LINK_CLICK_MESSAGE,
   INTERNAL_REPORT_NAVIGATION_MESSAGE,
 } from '../../src/publishTab/constants';
+import type { TrackingPort } from '../../src/publishTab/domain/tracking';
 import type { ReportManifest } from '../../src/publishTab/models';
 import { PublishTabContainer } from '../../src/publishTab/controllers/PublishTabContainer';
 import type { AttachmentClient } from '../../src/publishTab/services/attachments/AttachmentClient';
@@ -16,6 +18,9 @@ const getQueryParamsMock = jest.fn();
 const syncReportSelectionMock = jest.fn();
 const getReportFrameHtmlMock = jest.fn();
 const disposeMock = jest.fn();
+const trackingPort = {
+  track: jest.fn<Promise<void>, [unknown]>(),
+};
 
 jest.mock('../../src/publishTab/services/navigation/HostNavigationService', () => ({
   HostNavigationService: jest.fn().mockImplementation(() => ({
@@ -33,11 +38,17 @@ jest.mock('../../src/publishTab/services/reports/ReportHtmlService', () => ({
 
 jest.mock('../../src/publishTab/ui/components/PublishTabView', () => ({
   PublishTabView: (props: {
+    legacyTabs: Array<{ id: string }>;
+    onLegacyTabChange: (tabId: string) => void;
+    onReportTabChange: (tabId: string) => void;
     viewerContentHtml?: string;
     viewerWarningMessage?: string;
+    reportTabs: Array<{ id: string }>;
     selectedReportTabId: string;
     selectedSummaryTabId: string;
+    summaryTabs: Array<{ id: string }>;
     onDownloadArchive: () => void;
+    onSummaryTabChange: (tabId: string) => void;
   }) => (
     <div>
       <div data-testid="selected-summary">{props.selectedSummaryTabId}</div>
@@ -50,6 +61,36 @@ jest.mock('../../src/publishTab/ui/components/PublishTabView', () => ({
       <button onClick={props.onDownloadArchive} type="button">
         Trigger download
       </button>
+      {props.summaryTabs[1] ? (
+        <button
+          onClick={() => {
+            props.onSummaryTabChange(props.summaryTabs[1].id);
+          }}
+          type="button"
+        >
+          Trigger summary tab
+        </button>
+      ) : null}
+      {props.reportTabs[1] ? (
+        <button
+          onClick={() => {
+            props.onReportTabChange(props.reportTabs[1].id);
+          }}
+          type="button"
+        >
+          Trigger report tab
+        </button>
+      ) : null}
+      {props.legacyTabs[1] ? (
+        <button
+          onClick={() => {
+            props.onLegacyTabChange(props.legacyTabs[1].id);
+          }}
+          type="button"
+        >
+          Trigger legacy tab
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -59,6 +100,7 @@ describe('PublishTabContainer', () => {
     jest.clearAllMocks();
     window.history.replaceState(null, '', 'http://localhost/');
     document.body.innerHTML = '';
+    trackingPort.track.mockResolvedValue(undefined);
     getQueryParamsMock.mockResolvedValue({});
     syncReportSelectionMock.mockResolvedValue(undefined);
     getReportFrameHtmlMock.mockResolvedValue('<iframe>report</iframe>');
@@ -71,7 +113,7 @@ describe('PublishTabContainer', () => {
     const attachmentClient = createAttachmentClient({
       hasManifestMode: true,
       manifestsBySummary: {
-        'summary-a': createManifest('Coverage', 'report-1'),
+        'summary-a': createManifest('Coverage', ['report-1']),
       },
       summaryAttachmentNames: ['summary-a'],
     });
@@ -80,6 +122,8 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
       />,
     );
 
@@ -97,6 +141,11 @@ describe('PublishTabContainer', () => {
       'report-1',
       expect.objectContaining({ tabName: 'Coverage' }),
     );
+    await waitFor(() => {
+      expect(trackingPort.track).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'publish_tab_opened' }),
+      );
+    });
   });
 
   it('shows a not-found page when the host requests a manifest report that does not exist', async () => {
@@ -107,7 +156,7 @@ describe('PublishTabContainer', () => {
     const attachmentClient = createAttachmentClient({
       hasManifestMode: true,
       manifestsBySummary: {
-        'summary-a': createManifest('Coverage', 'report-1'),
+        'summary-a': createManifest('Coverage', ['report-1']),
       },
       summaryAttachmentNames: ['summary-a'],
     });
@@ -116,6 +165,8 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
       />,
     );
 
@@ -143,6 +194,8 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
       />,
     );
 
@@ -163,6 +216,8 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
       />,
     );
 
@@ -202,6 +257,8 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
       />,
     );
 
@@ -234,7 +291,7 @@ describe('PublishTabContainer', () => {
       hasManifestMode: true,
       manifestsBySummary: {
         'summary-a': {
-          ...createManifest('Coverage', 'report-1'),
+          ...createManifest('Coverage', ['report-1']),
           downloadAll: {
             attachmentName: 'archive.zip',
             fileName: 'coverage.zip',
@@ -248,6 +305,8 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
       />,
     );
 
@@ -265,7 +324,173 @@ describe('PublishTabContainer', () => {
 
     alertSpy.mockRestore();
   });
+
+  it('tracks embedded link clicks and internal-link driven tab changes without sending raw targets', async () => {
+    const attachmentClient = createAttachmentClient({
+      hasManifestMode: false,
+      legacyAttachmentNames: ['legacy-report-1', 'legacy-report-2'],
+    });
+
+    render(
+      <PublishTabContainer
+        appVersion="1.2.3"
+        attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getReportFrameHtmlMock).toHaveBeenCalledWith(
+        'legacy-report-1',
+        undefined,
+      );
+    });
+
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        data: {
+          attachmentName: 'legacy-report-2',
+          href: 'legacy-report-2',
+          type: INTERNAL_REPORT_LINK_CLICK_MESSAGE,
+        },
+      }),
+    );
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        data: {
+          attachmentName: 'legacy-report-2',
+          type: INTERNAL_REPORT_NAVIGATION_MESSAGE,
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('selected-report')).toHaveTextContent(
+        'legacy-report-2',
+      );
+    });
+
+    expect(findTrackedEvent('publish_tab_link_clicked')).toMatchObject({
+      payload: expect.objectContaining({
+        linkType: 'internal',
+        targetKind: 'report',
+      }),
+    });
+    expect(findTrackedEvent('publish_tab_link_clicked')).not.toMatchObject({
+      payload: expect.objectContaining({
+        href: expect.anything(),
+        targetPath: expect.anything(),
+      }),
+    });
+    expect(findTrackedEvent('publish_tab_selected')).toMatchObject({
+      payload: expect.objectContaining({
+        navigationSource: 'internal_link',
+        tabType: 'legacy',
+      }),
+    });
+  });
+
+  it('tracks missing embedded targets as both a click and a navigation failure', async () => {
+    const attachmentClient = createAttachmentClient({
+      hasManifestMode: false,
+      legacyAttachmentNames: ['legacy-report'],
+    });
+
+    render(
+      <PublishTabContainer
+        appVersion="1.2.3"
+        attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getReportFrameHtmlMock).toHaveBeenCalledWith(
+        'legacy-report',
+        undefined,
+      );
+    });
+
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        data: {
+          href: 'missing/details.html',
+          missingTarget: 'missing/details.html',
+          type: INTERNAL_REPORT_LINK_CLICK_MESSAGE,
+        },
+      }),
+    );
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        data: {
+          missingTarget: 'missing/details.html',
+          type: INTERNAL_REPORT_NAVIGATION_MESSAGE,
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(findTrackedEvent('publish_tab_navigation_failed')).toMatchObject({
+        payload: expect.objectContaining({
+          errorKind: 'missing_link',
+          navigationSource: 'internal_link',
+        }),
+      });
+    });
+  });
+
+  it('tracks a manifest report-tab click with the report tab type', async () => {
+    const attachmentClient = createAttachmentClient({
+      hasManifestMode: true,
+      manifestsBySummary: {
+        'summary-a': createManifest('Coverage', ['report-1', 'report-2']),
+      },
+      summaryAttachmentNames: ['summary-a'],
+    });
+
+    render(
+      <PublishTabContainer
+        appVersion="1.2.3"
+        attachmentClient={attachmentClient as unknown as AttachmentClient}
+        trackingPort={trackingPort as unknown as TrackingPort}
+        buildId={42}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Trigger report tab')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Trigger report tab'));
+
+    await waitFor(() => {
+      expect(findTrackedEvent('publish_tab_selected')).toMatchObject({
+        payload: expect.objectContaining({
+          navigationSource: 'click',
+          tabType: 'report',
+        }),
+      });
+    });
+  });
 });
+
+function findTrackedEvent(name: string): { name: string; payload: unknown } {
+  const trackedCall = trackingPort.track.mock.calls.find(
+    ([event]) => (event as { name?: string }).name === name,
+  );
+
+  if (!trackedCall) {
+    throw new Error(`Tracking event ${name} was not tracked`);
+  }
+
+  return trackedCall[0] as { name: string; payload: unknown };
+}
 
 function createAttachmentClient(options?: {
   downloadError?: Error;
@@ -308,17 +533,18 @@ function createAttachmentClient(options?: {
   };
 }
 
-function createManifest(tabName: string, reportAttachmentName: string): ReportManifest {
+function createManifest(
+  tabName: string,
+  reportAttachmentNames: string[],
+): ReportManifest {
   return {
-    reports: [
-      {
-        attachmentName: reportAttachmentName,
-        displayName: 'Overview',
-        fileName: reportAttachmentName,
-        isHtml: true,
-        relativePath: reportAttachmentName,
-      },
-    ],
+    reports: reportAttachmentNames.map((reportAttachmentName, index) => ({
+      attachmentName: reportAttachmentName,
+      displayName: index === 0 ? 'Overview' : `Page ${index + 1}`,
+      fileName: reportAttachmentName,
+      isHtml: true,
+      relativePath: reportAttachmentName,
+    })),
     schemaVersion: 1,
     tabName,
   };

@@ -7,6 +7,7 @@ export const MARKETPLACE_URL =
 
 export const INTERNAL_REPORT_NAVIGATION_MESSAGE = 'publish-html-tab:navigate';
 export const INTERNAL_REPORT_HEIGHT_MESSAGE = 'publish-html-tab:height';
+export const INTERNAL_REPORT_LINK_CLICK_MESSAGE = 'publish-html-tab:link-click';
 export const INTERNAL_REPORT_LINK_ATTRIBUTE = 'data-publish-html-tab-report';
 export const INTERNAL_REPORT_MISSING_LINK_ATTRIBUTE =
   'data-publish-html-tab-missing-link';

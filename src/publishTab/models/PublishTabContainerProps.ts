@@ -1,3 +1,4 @@
+import { TrackingPort } from '../domain/tracking';
 import { AttachmentClient } from '../services/attachments/AttachmentClient';
 
 /**
@@ -6,4 +7,6 @@ import { AttachmentClient } from '../services/attachments/AttachmentClient';
 export interface PublishTabContainerProps {
   appVersion: string;
   attachmentClient: AttachmentClient;
+  trackingPort: TrackingPort;
+  buildId: number;
 }

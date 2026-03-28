@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { webcrypto } from 'crypto';
 import { TextDecoder, TextEncoder } from 'util';
 
 class ResizeObserverMock implements ResizeObserver {
@@ -20,6 +21,11 @@ Object.defineProperty(global, 'TextEncoder', {
 Object.defineProperty(global, 'TextDecoder', {
   configurable: true,
   value: TextDecoder,
+});
+
+Object.defineProperty(global, 'crypto', {
+  configurable: true,
+  value: webcrypto,
 });
 
 Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {

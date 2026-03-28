@@ -10,8 +10,8 @@
   "demands": [],
   "version": {
     "Major": "1",
-    "Minor": "20260327",
-    "Patch": "15813"
+    "Minor": "20260328",
+    "Patch": "15880"
   },
   "minimumAgentVersion": "1.95.0",
   "instanceNameFormat": "Publish Html Tab",

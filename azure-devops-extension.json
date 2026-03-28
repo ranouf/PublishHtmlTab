@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "publish-html-tab",
   "publisher": "ranouf",
-  "version": "1.20260327.15813",
+  "version": "1.20260328.15880",
   "author": "ranouf",
   "name": "Publish Html Tab",
   "description": "Publish HTML reports in Azure Pipelines",
@@ -40,7 +40,7 @@
       "path": "LICENSE"
     }
   },
-  "scopes": ["vso.build_execute"],
+  "scopes": ["vso.build"],
   "demands": ["api-version/3.0"],
   "contributions": [
     {
@@ -64,6 +64,15 @@
       "properties": {
         "name": "PublishHtmlReport",
         "displayName": "Publish HTML Tab"
+      }
+    },
+    {
+      "id": "publish-html-tab-settings",
+      "type": "ms.vss-web.hub",
+      "targets": ["ms.vss-web.collection-admin-hub-group"],
+      "properties": {
+        "name": "Publish HTML Tab",
+        "uri": "dist/settings.html"
       }
     }
   ],
