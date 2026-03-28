@@ -134,6 +134,36 @@ describe('TrackingClient', () => {
         surface: 'settings_page',
       }),
     );
+
+    expect(
+      mapTrackingEvent({
+        name: trackingEvents.trackingSettingsOpened,
+        payload: {
+          extensionVersion: '1.2.3',
+          scope: 'organization',
+          source: 'settings_page',
+        },
+      }),
+    ).toEqual({
+      extension_version: '1.2.3',
+      scope: 'organization',
+      source: 'settings_page',
+    });
+
+    expect(
+      mapTrackingEvent({
+        name: trackingEvents.trackingEnabled,
+        payload: {
+          extensionVersion: '1.2.3',
+          scope: 'organization',
+          source: 'settings_page',
+        },
+      }),
+    ).toEqual({
+      extension_version: '1.2.3',
+      scope: 'organization',
+      source: 'settings_page',
+    });
   });
 
   it('sends events through the Amplitude HTTP V2 API', async () => {
@@ -302,5 +332,32 @@ describe('TrackingClient', () => {
 
     expect(fetch).not.toHaveBeenCalled();
     expect(sendBeacon).not.toHaveBeenCalled();
+  });
+
+  it('falls back to sendBeacon when fetch rejects', async () => {
+    const fetch = jest.fn().mockRejectedValue(new Error('network failed'));
+    const sendBeacon = jest.fn().mockReturnValue(true);
+    const tracker = new TrackingClient(
+      trackingConfig,
+      true,
+      {
+        fetch,
+        navigator: { doNotTrack: '0', sendBeacon },
+      } as unknown as Window,
+    );
+
+    await tracker.track({
+      name: trackingEvents.trackingSettingsOpened,
+      payload: {
+        extensionVersion: '1.2.3',
+        scope: 'organization',
+        source: 'settings_page',
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
   });
 });
