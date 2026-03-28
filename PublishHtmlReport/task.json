@@ -6,9 +6,7 @@
   "author": "ranouf",
   "helpMarkDown": "Publishes an HTML report or a report directory into the Azure DevOps build results experience.",
   "category": "Utility",
-  "visibility": [
-    "Build"
-  ],
+  "visibility": ["Build"],
   "demands": [],
   "version": {
     "Major": "1",
