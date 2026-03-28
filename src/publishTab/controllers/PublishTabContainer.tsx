@@ -11,25 +11,25 @@ import {
   INTERNAL_REPORT_NAVIGATION_MESSAGE,
   MIN_REPORT_FRAME_HEIGHT,
 } from '../constants';
-import { trackPublishTabDownloadClicked } from '../application/analytics/trackPublishTabDownloadClicked';
-import { trackPublishTabDownloadFailed } from '../application/analytics/trackPublishTabDownloadFailed';
-import { trackPublishTabLinkClicked } from '../application/analytics/trackPublishTabLinkClicked';
-import { trackPublishTabNavigationFailed } from '../application/analytics/trackPublishTabNavigationFailed';
-import { trackPublishTabOpened } from '../application/analytics/trackPublishTabOpened';
-import { trackPublishTabSelected } from '../application/analytics/trackPublishTabSelected';
+import { trackPublishTabDownloadClicked } from '../application/tracking/trackPublishTabDownloadClicked';
+import { trackPublishTabDownloadFailed } from '../application/tracking/trackPublishTabDownloadFailed';
+import { trackPublishTabLinkClicked } from '../application/tracking/trackPublishTabLinkClicked';
+import { trackPublishTabNavigationFailed } from '../application/tracking/trackPublishTabNavigationFailed';
+import { trackPublishTabOpened } from '../application/tracking/trackPublishTabOpened';
+import { trackPublishTabSelected } from '../application/tracking/trackPublishTabSelected';
 import {
-  AnalyticsErrorKind,
-  AnalyticsMode,
-  AnalyticsNavigationSource,
-  AnalyticsTabType,
-} from '../domain/analytics';
-import { hashValue } from '../infrastructure/analytics/hash';
+  TrackingErrorKind,
+  TrackingMode,
+  TrackingNavigationSource,
+  TrackingTabType,
+} from '../domain/tracking';
+import { hashValue } from '../infrastructure/tracking/hash';
 import {
   bucketManifestSize,
   normalizeErrorKind,
   sanitizeLinkDetails,
   sanitizeTrackedPath,
-} from '../infrastructure/analytics/sanitizers';
+} from '../infrastructure/tracking/sanitizers';
 import {
   EmbeddedReportMessage,
   PublishTabContainerProps,
@@ -222,14 +222,14 @@ export class PublishTabContainer extends React.Component<
   }
 
   /**
-   * Returns the shared analytics context attached to every event.
+   * Returns the shared tracking context attached to every event.
    *
-   * @returns {{ buildId: number; extensionVersion: string; mode: AnalyticsMode }} Shared analytics fields.
+   * @returns {{ buildId: number; extensionVersion: string; mode: TrackingMode }} Shared tracking fields.
    */
-  private getAnalyticsContext(): {
+  private getTrackingContext(): {
     buildId: number;
     extensionVersion: string;
-    mode: AnalyticsMode;
+    mode: TrackingMode;
   } {
     return {
       buildId: this.props.buildId,
@@ -262,13 +262,13 @@ export class PublishTabContainer extends React.Component<
   }
 
   /**
-   * Runs one analytics task without allowing telemetry failures to surface to the UI.
+   * Runs one tracking task without allowing telemetry failures to surface to the UI.
    *
-   * @param {Promise<void>} analyticsTask - Tracking promise started by a handler.
+   * @param {Promise<void>} trackingTask - Tracking promise started by a handler.
    * @returns {void} Does not return a value.
    */
-  private runAnalyticsTask(analyticsTask: Promise<void>): void {
-    analyticsTask.catch(() => {
+  private runTrackingTask(trackingTask: Promise<void>): void {
+    trackingTask.catch(() => {
       return;
     });
   }
@@ -403,7 +403,7 @@ export class PublishTabContainer extends React.Component<
   }
 
   /**
-   * Resolves the stable analytics path for one report attachment.
+   * Resolves the stable tracking path for one report attachment.
    *
    * @param {string} attachmentName - Report attachment currently being tracked.
    * @returns {string | undefined} Manifest-relative path or legacy attachment name.
@@ -426,7 +426,7 @@ export class PublishTabContainer extends React.Component<
    * Hashes a sanitized tracking path before it leaves the browser.
    *
    * @param {string | undefined} rawPath - Raw internal path or attachment identifier.
-   * @returns {Promise<string | undefined>} Hashed path safe to send to analytics.
+   * @returns {Promise<string | undefined>} Hashed path safe to send to tracking.
    */
   private async hashTrackedPath(
     rawPath: string | undefined,
@@ -547,8 +547,8 @@ export class PublishTabContainer extends React.Component<
     this.hasTrackedOpenedEvent = true;
     this.lastTrackedTabChangeAtMs = Date.now();
 
-    await trackPublishTabOpened(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabOpened(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       hasDownload: !!this.getSelectedManifest()?.downloadAll,
       manifestSizeBucket: this.getManifestSizeBucket(),
       pageCount: this.getCurrentPageCount(),
@@ -578,8 +578,8 @@ export class PublishTabContainer extends React.Component<
       return;
     }
 
-    await trackPublishTabSelected(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabSelected(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       navigationSource: 'click',
       tabCount: this.props.attachmentClient.getSummaryAttachments().length,
       tabIndex,
@@ -593,14 +593,14 @@ export class PublishTabContainer extends React.Component<
    * Tracks one report-layer tab selection.
    *
    * @param {string} attachmentName - Selected report attachment name.
-   * @param {AnalyticsTabType} tabType - Tab layer that changed.
-   * @param {AnalyticsNavigationSource} navigationSource - Interaction source that caused the change.
+   * @param {TrackingTabType} tabType - Tab layer that changed.
+   * @param {TrackingNavigationSource} navigationSource - Interaction source that caused the change.
    * @returns {Promise<void>} Resolves when the selected event has been queued.
    */
   private async trackReportTabSelected(
     attachmentName: string,
-    tabType: AnalyticsTabType,
-    navigationSource: AnalyticsNavigationSource,
+    tabType: TrackingTabType,
+    navigationSource: TrackingNavigationSource,
   ): Promise<void> {
     const trackedTabs = this.getTrackedReportTabs(tabType);
     const tabIndex = this.findTabIndex(
@@ -611,8 +611,8 @@ export class PublishTabContainer extends React.Component<
       return;
     }
 
-    await trackPublishTabSelected(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabSelected(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       navigationSource,
       tabCount: trackedTabs.length,
       tabIndex,
@@ -627,11 +627,11 @@ export class PublishTabContainer extends React.Component<
   /**
    * Returns the currently visible tab descriptors for one report-layer event.
    *
-   * @param {AnalyticsTabType} tabType - Tab layer being measured.
+   * @param {TrackingTabType} tabType - Tab layer being measured.
    * @returns {PublishTabHeaderTab[]} Tab descriptors in display order.
    */
   private getTrackedReportTabs(
-    tabType: AnalyticsTabType,
+    tabType: TrackingTabType,
   ): PublishTabHeaderTab[] {
     if (tabType === 'report') {
       return this.buildReportTabs(this.getSelectedManifest());
@@ -648,8 +648,8 @@ export class PublishTabContainer extends React.Component<
    * @returns {Promise<void>} Resolves when the click event has been queued.
    */
   private async trackDownloadClick(): Promise<void> {
-    await trackPublishTabDownloadClicked(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabDownloadClicked(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       downloadType: 'archive',
       hasDownload: true,
       tabIndex: this.getSelectedTopLevelTabIndex(),
@@ -663,14 +663,14 @@ export class PublishTabContainer extends React.Component<
   /**
    * Tracks one archive download failure with a normalized error category.
    *
-   * @param {AnalyticsErrorKind} errorKind - Normalized failure category.
+   * @param {TrackingErrorKind} errorKind - Normalized failure category.
    * @returns {Promise<void>} Resolves when the failure event has been queued.
    */
   private async trackDownloadFailure(
-    errorKind: AnalyticsErrorKind,
+    errorKind: TrackingErrorKind,
   ): Promise<void> {
-    await trackPublishTabDownloadFailed(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabDownloadFailed(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       downloadType: 'archive',
       errorKind,
       hasDownload: true,
@@ -693,8 +693,8 @@ export class PublishTabContainer extends React.Component<
   ): Promise<void> {
     const details = sanitizeLinkDetails(data);
 
-    await trackPublishTabLinkClicked(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabLinkClicked(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       linkType: details.linkType,
       targetKind: details.targetKind,
       targetPathHash: await this.hashTrackedPath(details.targetPath),
@@ -705,18 +705,18 @@ export class PublishTabContainer extends React.Component<
   /**
    * Tracks one navigation failure with a normalized reason and hashed target.
    *
-   * @param {AnalyticsErrorKind} errorKind - Normalized navigation failure category.
-   * @param {AnalyticsNavigationSource} navigationSource - Interaction source that caused the failure.
+   * @param {TrackingErrorKind} errorKind - Normalized navigation failure category.
+   * @param {TrackingNavigationSource} navigationSource - Interaction source that caused the failure.
    * @param {string | undefined} rawTarget - Raw target path or attachment name that failed.
    * @returns {Promise<void>} Resolves when the failure event has been queued.
    */
   private async trackNavigationFailure(
-    errorKind: AnalyticsErrorKind,
-    navigationSource: AnalyticsNavigationSource,
+    errorKind: TrackingErrorKind,
+    navigationSource: TrackingNavigationSource,
     rawTarget?: string,
   ): Promise<void> {
-    await trackPublishTabNavigationFailed(this.props.analyticsTracker, {
-      ...this.getAnalyticsContext(),
+    await trackPublishTabNavigationFailed(this.props.trackingPort, {
+      ...this.getTrackingContext(),
       errorKind,
       navigationSource,
       targetPathHash: await this.hashTrackedPath(rawTarget),
@@ -947,7 +947,7 @@ export class PublishTabContainer extends React.Component<
     this.selectReport(attachmentName, {
       clearViewerError: true,
       onSelected: () => {
-        this.runAnalyticsTask(this.trackOpenedViewIfNeeded());
+        this.runTrackingTask(this.trackOpenedViewIfNeeded());
       },
       pushHistory: false,
     });
@@ -1121,7 +1121,7 @@ export class PublishTabContainer extends React.Component<
     this.selectReport(attachmentName, {
       clearViewerError: true,
       onSelected: () => {
-        this.runAnalyticsTask(this.trackOpenedViewIfNeeded());
+        this.runTrackingTask(this.trackOpenedViewIfNeeded());
       },
       pushHistory: false,
       syncLocationHash: false,
@@ -1288,7 +1288,7 @@ export class PublishTabContainer extends React.Component<
     }
 
     if (data.type === INTERNAL_REPORT_LINK_CLICK_MESSAGE) {
-      this.runAnalyticsTask(this.trackEmbeddedLinkClick(data));
+      this.runTrackingTask(this.trackEmbeddedLinkClick(data));
       return;
     }
 
@@ -1353,7 +1353,7 @@ export class PublishTabContainer extends React.Component<
    * @returns {void} Does not return a value.
    */
   private handleMissingEmbeddedTarget(missingTarget: string): void {
-    this.runAnalyticsTask(
+    this.runTrackingTask(
       this.trackNavigationFailure(
         'missing_link',
         'internal_link',
@@ -1373,7 +1373,7 @@ export class PublishTabContainer extends React.Component<
    * @returns {void} Does not return a value.
    */
   private handleEmbeddedAttachmentNavigation(attachmentName: string): void {
-    this.runAnalyticsTask(
+    this.runTrackingTask(
       this.trackReportTabSelected(
         attachmentName,
         this.props.attachmentClient.hasManifestMode() ? 'report' : 'legacy',
@@ -1435,9 +1435,9 @@ export class PublishTabContainer extends React.Component<
    */
   private showMissingManifestReport(
     attachmentName: string,
-    navigationSource: AnalyticsNavigationSource = 'restore',
+    navigationSource: TrackingNavigationSource = 'restore',
   ): void {
-    this.runAnalyticsTask(
+    this.runTrackingTask(
       this.trackNavigationFailure(
         'missing_report',
         navigationSource,
@@ -1448,7 +1448,7 @@ export class PublishTabContainer extends React.Component<
       'Page not found',
       `The requested report page "${attachmentName}" does not exist in this tab.`,
     );
-    this.runAnalyticsTask(this.trackOpenedViewIfNeeded());
+    this.runTrackingTask(this.trackOpenedViewIfNeeded());
   }
 
   /**
@@ -1459,9 +1459,9 @@ export class PublishTabContainer extends React.Component<
    */
   private showMissingLegacyReport(
     attachmentName: string,
-    navigationSource: AnalyticsNavigationSource = 'restore',
+    navigationSource: TrackingNavigationSource = 'restore',
   ): void {
-    this.runAnalyticsTask(
+    this.runTrackingTask(
       this.trackNavigationFailure(
         'missing_report',
         navigationSource,
@@ -1472,7 +1472,7 @@ export class PublishTabContainer extends React.Component<
       'Page not found',
       `The requested report page "${attachmentName}" was not found.`,
     );
-    this.runAnalyticsTask(this.trackOpenedViewIfNeeded());
+    this.runTrackingTask(this.trackOpenedViewIfNeeded());
   }
 
   /**
@@ -1486,7 +1486,7 @@ export class PublishTabContainer extends React.Component<
       return;
     }
 
-    this.runAnalyticsTask(this.trackDownloadClick());
+    this.runTrackingTask(this.trackDownloadClick());
 
     try {
       await this.props.attachmentClient.downloadReportArchive(
@@ -1495,7 +1495,7 @@ export class PublishTabContainer extends React.Component<
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.runAnalyticsTask(
+      this.runTrackingTask(
         this.trackDownloadFailure(normalizeErrorKind(error)),
       );
       window.alert(`Unable to download tab content archive: ${message}`);
@@ -1512,7 +1512,7 @@ export class PublishTabContainer extends React.Component<
     const isReselectedTab =
       this.state.selectedSummaryAttachmentName === summaryAttachmentName;
 
-    this.runAnalyticsTask(this.trackSummaryTabSelected(summaryAttachmentName));
+    this.runTrackingTask(this.trackSummaryTabSelected(summaryAttachmentName));
     this.setState(
       {
         selectedSummaryAttachmentName: summaryAttachmentName,
@@ -1542,7 +1542,7 @@ export class PublishTabContainer extends React.Component<
    * @returns {void} Does not return a value.
    */
   private handleReportTabChange = (reportAttachmentName: string): void => {
-    this.runAnalyticsTask(
+    this.runTrackingTask(
       this.trackReportTabSelected(reportAttachmentName, 'report', 'click'),
     );
     this.selectReport(reportAttachmentName, {
@@ -1558,7 +1558,7 @@ export class PublishTabContainer extends React.Component<
    * @returns {void} Does not return a value.
    */
   private handleLegacyTabChange = (reportAttachmentName: string): void => {
-    this.runAnalyticsTask(
+    this.runTrackingTask(
       this.trackReportTabSelected(reportAttachmentName, 'legacy', 'click'),
     );
     this.selectReport(reportAttachmentName, {

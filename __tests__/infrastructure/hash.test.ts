@@ -1,4 +1,4 @@
-import { hashValue } from '../../src/publishTab/infrastructure/analytics/hash';
+import { hashValue } from '../../src/publishTab/infrastructure/tracking/hash';
 
 describe('hashValue', () => {
   it('returns a stable short hash for one input', async () => {

@@ -1,4 +1,4 @@
-import { AnalyticsTracker } from '../domain/analytics';
+import { TrackingPort } from '../domain/tracking';
 import { AttachmentClient } from '../services/attachments/AttachmentClient';
 
 /**
@@ -7,6 +7,6 @@ import { AttachmentClient } from '../services/attachments/AttachmentClient';
 export interface PublishTabContainerProps {
   appVersion: string;
   attachmentClient: AttachmentClient;
-  analyticsTracker: AnalyticsTracker;
+  trackingPort: TrackingPort;
   buildId: number;
 }

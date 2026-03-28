@@ -4,8 +4,9 @@ import * as SDK from 'azure-devops-extension-sdk';
 
 import { initializePublishTab } from '../../src/publishTab/bootstrap';
 
+const getSettingsMock = jest.fn();
 const mockLoad = jest.fn();
-const analyticsTracker = {
+const trackingPort = {
   track: jest.fn(),
 };
 
@@ -24,16 +25,29 @@ jest.mock('../../src/publishTab/services/attachments/BuildAttachmentClient', () 
 }));
 
 jest.mock(
-  '../../src/publishTab/infrastructure/analytics/createAnalyticsTracker',
+  '../../src/publishTab/infrastructure/tracking/createTrackingPort',
   () => ({
-    createAnalyticsTracker: jest.fn(() => analyticsTracker),
+    createTrackingPort: jest.fn(() => trackingPort),
   }),
 );
 
+jest.mock('../../src/publishTab/infrastructure/settings/createSettingsRepository', () => ({
+  createSettingsRepository: jest.fn(() => ({
+    getSettings: getSettingsMock,
+  })),
+}));
+
+jest.mock('../../src/publishTab/application/settings/getSettings', () => ({
+  getSettings: jest.fn((repository) => repository.getSettings()),
+}));
+
 jest.mock('azure-devops-extension-sdk', () => ({
+  getAccessToken: jest.fn(),
   getConfiguration: jest.fn(),
   getExtensionContext: jest.fn(),
   init: jest.fn(),
+  notifyLoadFailed: jest.fn(),
+  notifyLoadSucceeded: jest.fn(),
   ready: jest.fn(),
 }));
 
@@ -48,7 +62,8 @@ describe('initializePublishTab', () => {
     jest.clearAllMocks();
     document.body.innerHTML =
       '<div id="html-report-extention-container"></div>';
-    analyticsTracker.track.mockResolvedValue(undefined);
+    trackingPort.track.mockResolvedValue(undefined);
+    getSettingsMock.mockResolvedValue({ trackingEnabled: true });
     mockLoad.mockResolvedValue(undefined);
     (SDK.ready as jest.Mock).mockResolvedValue(undefined);
     (SDK.getExtensionContext as jest.Mock).mockReturnValue({
@@ -67,6 +82,7 @@ describe('initializePublishTab', () => {
 
     expect(SDK.init).toHaveBeenCalledTimes(1);
     expect(SDK.ready).toHaveBeenCalledTimes(1);
+    expect(getSettingsMock).toHaveBeenCalledTimes(1);
     expect(mockOnBuildChanged).toHaveBeenCalledTimes(1);
     expect(mockLoad).toHaveBeenCalledTimes(1);
 
@@ -76,7 +92,7 @@ describe('initializePublishTab', () => {
     expect(React.isValidElement(renderedElement)).toBe(true);
     expect(renderedElement.props.appVersion).toBe('9.9.9');
     expect(renderedElement.props.attachmentClient).toBeDefined();
-    expect(renderedElement.props.analyticsTracker).toBe(analyticsTracker);
+    expect(renderedElement.props.trackingPort).toBe(trackingPort);
     expect(renderedElement.props.buildId).toBe(42);
     expect(renderedElement.key).toBe('publish-tab-0');
     expect(container).toBe(
@@ -102,6 +118,20 @@ describe('initializePublishTab', () => {
 
     const [renderedElement] = (ReactDOM.render as jest.Mock).mock.calls[0];
     expect(renderedElement.props.appVersion).toBe('1.2.3');
+  });
+
+  it('defaults tracking to enabled when loading settings fails', async () => {
+    const { createTrackingPort } = jest.requireMock(
+      '../../src/publishTab/infrastructure/tracking/createTrackingPort',
+    ) as {
+      createTrackingPort: jest.Mock;
+    };
+    getSettingsMock.mockRejectedValue(new Error('Settings unavailable'));
+
+    initializePublishTab('1.2.3');
+    await flushPromises();
+
+    expect(createTrackingPort).toHaveBeenCalledWith(true);
   });
 });
 

@@ -6,14 +6,12 @@
   "author": "ranouf",
   "helpMarkDown": "Publishes an HTML report or a report directory into the Azure DevOps build results experience.",
   "category": "Utility",
-  "visibility": [
-    "Build"
-  ],
+  "visibility": ["Build"],
   "demands": [],
   "version": {
     "Major": "1",
     "Minor": "20260327",
-    "Patch": "67936"
+    "Patch": "76425"
   },
   "minimumAgentVersion": "1.95.0",
   "instanceNameFormat": "Publish Html Tab",

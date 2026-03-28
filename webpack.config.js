@@ -5,6 +5,7 @@ const packageJson = require('./package.json');
 
 module.exports = {
   entry: {
+    settings: './src/settings.tsx',
     tabContent: './src/tabContent.tsx',
   },
   output: {

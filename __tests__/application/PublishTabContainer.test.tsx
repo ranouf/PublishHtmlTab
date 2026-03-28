@@ -9,7 +9,7 @@ import {
   INTERNAL_REPORT_LINK_CLICK_MESSAGE,
   INTERNAL_REPORT_NAVIGATION_MESSAGE,
 } from '../../src/publishTab/constants';
-import type { AnalyticsTracker } from '../../src/publishTab/domain/analytics';
+import type { TrackingPort } from '../../src/publishTab/domain/tracking';
 import type { ReportManifest } from '../../src/publishTab/models';
 import { PublishTabContainer } from '../../src/publishTab/controllers/PublishTabContainer';
 import type { AttachmentClient } from '../../src/publishTab/services/attachments/AttachmentClient';
@@ -18,7 +18,7 @@ const getQueryParamsMock = jest.fn();
 const syncReportSelectionMock = jest.fn();
 const getReportFrameHtmlMock = jest.fn();
 const disposeMock = jest.fn();
-const analyticsTracker = {
+const trackingPort = {
   track: jest.fn<Promise<void>, [unknown]>(),
 };
 
@@ -100,7 +100,7 @@ describe('PublishTabContainer', () => {
     jest.clearAllMocks();
     window.history.replaceState(null, '', 'http://localhost/');
     document.body.innerHTML = '';
-    analyticsTracker.track.mockResolvedValue(undefined);
+    trackingPort.track.mockResolvedValue(undefined);
     getQueryParamsMock.mockResolvedValue({});
     syncReportSelectionMock.mockResolvedValue(undefined);
     getReportFrameHtmlMock.mockResolvedValue('<iframe>report</iframe>');
@@ -122,7 +122,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -142,7 +142,7 @@ describe('PublishTabContainer', () => {
       expect.objectContaining({ tabName: 'Coverage' }),
     );
     await waitFor(() => {
-      expect(analyticsTracker.track).toHaveBeenCalledWith(
+      expect(trackingPort.track).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'publish_tab_opened' }),
       );
     });
@@ -165,7 +165,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -194,7 +194,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -216,7 +216,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -257,7 +257,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -305,7 +305,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -335,7 +335,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -403,7 +403,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -458,7 +458,7 @@ describe('PublishTabContainer', () => {
       <PublishTabContainer
         appVersion="1.2.3"
         attachmentClient={attachmentClient as unknown as AttachmentClient}
-        analyticsTracker={analyticsTracker as unknown as AnalyticsTracker}
+        trackingPort={trackingPort as unknown as TrackingPort}
         buildId={42}
       />,
     );
@@ -481,12 +481,12 @@ describe('PublishTabContainer', () => {
 });
 
 function findTrackedEvent(name: string): { name: string; payload: unknown } {
-  const trackedCall = analyticsTracker.track.mock.calls.find(
+  const trackedCall = trackingPort.track.mock.calls.find(
     ([event]) => (event as { name?: string }).name === name,
   );
 
   if (!trackedCall) {
-    throw new Error(`Analytics event ${name} was not tracked`);
+    throw new Error(`Tracking event ${name} was not tracked`);
   }
 
   return trackedCall[0] as { name: string; payload: unknown };
